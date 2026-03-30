@@ -1,0 +1,39 @@
+{
+  "name": "ralph-node-base",
+  "version": "1.0.0",
+  "description": "A custom implementation of the Ralph Loop for Node.js — a test-gated, autonomous AI development cycle that turns PRDs into working code.",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest && playwright test",
+    "backpressure": "sh .github/scripts/backpressure.sh",
+    "ralph": "sh .github/scripts/ralph.sh",
+    "lint": "biome lint --write .",
+    "format": "biome format --write ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laptopmini/ralph-node-base.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Laptopmini/ralph-node-base/issues"
+  },
+  "homepage": "https://github.com/Laptopmini/ralph-node-base#readme",
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.9",
+    "@playwright/test": "^1.58.2",
+    "@swc/core": "^1.15.21",
+    "@swc/jest": "^0.2.39",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.3.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2"
+  },
+  "engines": {
+    "node": ">=24.14.1",
+    "npm": ">=11.11.0"
+  }
+}

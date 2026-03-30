@@ -1,4 +1,4 @@
-# ralph-node
+# ralph-node-base
 
 A custom implementation of the Ralph Loop for Node.js — a test-gated, autonomous AI development cycle that turns PRDs into working code.
 
