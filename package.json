@@ -10,7 +10,8 @@
     "backpressure": "sh .github/scripts/backpressure.sh",
     "ralph": "sh .github/scripts/ralph.sh",
     "lint": "biome lint --write .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "check-types": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
