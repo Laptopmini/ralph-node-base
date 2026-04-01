@@ -14,6 +14,7 @@ fi
 # Initialize the npm project
 npm init -y && \
 npm pkg set scripts.test="jest && playwright test" \
+            scripts.maestro="bash .github/scripts/maestro.sh" \
             scripts.backpressure="bash .github/scripts/backpressure.sh" \
             scripts.ralph="bash .github/scripts/ralph.sh" \
             scripts.lint="biome check --write ." \
