@@ -11,7 +11,6 @@ set -euo pipefail
 LOCK_FILE=".maestro.lock"
 LOG_FILE="tmp/maestro.log"
 BLUEPRINT_FILE=".maestro.blueprint.md"
-ENGINE="claude" # FIXME: Use env variable `ENGINE` with default value `claude`
 
 # Functions
 
@@ -80,11 +79,6 @@ fi
 
 touch "$LOCK_FILE"
 trap cleanup EXIT
-
-if ! command -v $ENGINE &> /dev/null; then
-    echo "❌ Error: $ENGINE CLI is not installed."
-    exit 1
-fi
 
 if [ -z "$*" ]; then
     echo "❌ Error: No feature(s) request paragraph/description provided."
@@ -224,10 +218,6 @@ mv "$LOG_FILE" "$FOLDER_NAME/maestro.log"
 git add .
 git commit -m "chore(ai): Add Maestro log"
 git push -u origin maestro
-
-# FIXME: Summarizer needs to accept branches not using `prd-1` format, and determin another commit slug for it
-# either `feat(<ticket-number>)` or `feat(ai)`
-
 prompt "/summarizer $REPO_SLUG maestro main" --model claude-haiku-4-5
 
 open_pull_requests

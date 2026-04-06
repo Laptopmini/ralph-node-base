@@ -2,6 +2,8 @@
 # Usage: prompt.sh "<agent prompt>" [extra args...]
 # Returns agent output on stdout. Narrates progress + echoes agent output on stderr.
 # 
+# The engine is selected via the ENGINE environment variable. Default is claude.
+# 
 # Exit codes:
 #   0  = success
 #   2  = rate limit / quota / credit exhausted  (caller may want to back off long)
@@ -11,6 +13,11 @@
 set -euo pipefail
 
 ENGINE="${ENGINE:-claude}"
+
+if ! command -v $ENGINE &> /dev/null; then
+    echo "❌ Error: $ENGINE CLI is not installed."
+    exit 1
+fi
 
 AGENT_PROMPT="$1"
 shift

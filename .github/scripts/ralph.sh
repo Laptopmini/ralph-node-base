@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ==============================================================================
-# RALPH LOOP: MULTI-ENGINE WITH TARGETED BACKPRESSURE
-# Usage: ./ralph.sh [MAX_LOOPS] [--engine claude|opencode]
+# RALPH LOOP: The test-gated, autonomous AI development cycle
+# Usage: ./ralph.sh [MAX_LOOPS]
 # ==============================================================================
 
 set -euo pipefail
@@ -12,7 +12,6 @@ ARCHIVE_FOLDER=".prds"
 LOCK_FILE=".ralph.lock"
 
 # Options
-ENGINE="claude"
 MAX_LOOPS=10
 
 # Variables
@@ -35,35 +34,12 @@ if [[ -n "${1:-}" && "${1:-}" != --* ]]; then
     shift
 fi
 
-while [[ "$#" -gt 0 ]]; do
-  case $1 in
-    --engine)
-      ENGINE="$2"
-      if [[ "$ENGINE" != "claude" && "$ENGINE" != "opencode" ]]; then
-        echo "❌ Error: Unsupported engine '$ENGINE'. Use '$0 --engine claude' or '$0 --engine opencode'."
-        exit 1
-      fi
-      shift 2
-      ;;
-    *)
-      echo "❌ Error: Unknown argument '$1'."
-      echo "Usage: $0 [MAX_LOOPS] [--engine claude|opencode]"
-      exit 1
-      ;;
-  esac
-done
-
-if ! command -v $ENGINE &> /dev/null; then
-    echo "❌ Error: $ENGINE CLI is not installed."
-    exit 1
-fi
-
 if [ ! -f PRD.md ]; then
     echo "❌ Error: PRD.md not found."
     exit 1
 fi
 
-echo "🟢 Starting Ralph Loop for at most $MAX_LOOPS iterations, using $ENGINE..."
+echo "🟢 Starting Ralph Loop for at most $MAX_LOOPS iterations..."
 
 ERROR_FEEDBACK=""
 
@@ -144,7 +120,6 @@ $PRD_CONTENT
 
     ERROR_FEEDBACK=""
 
-    echo "🟡 Handing control to $ENGINE..."
     set +e
     OUTPUT=$(prompt "$AGENT_PROMPT" \
         --allowedTools "Read,Edit,Write,Glob,Grep,Bash" \
