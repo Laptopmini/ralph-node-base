@@ -106,6 +106,11 @@ while $MISSING_BLUEPRINT; do
     echo "⚪️ Generating implementation plan..."
     TREE_LEVELS=$(prompt "/blueprint $*" --model claude-opus-4-6)
 
+    if [[ -z "$TREE_LEVELS" ]]; then
+        echo "❌ Error: Blueprint agent returned no tree levels. Aborting."
+        exit 1
+    fi
+
     FOLDER_NAME="docs/$(head -1 "$BLUEPRINT_FILE" | sed 's/## Implementation Plan: //g' | tr ' ' '-' | tr '[:upper:]' '[:lower:]')"
 
     COUNTER=0
@@ -140,7 +145,12 @@ echo "⚪️ Proceeding through implementation tree levels..."
 while IFS= read -r LEVEL; do
     echo "⚪️ [$LEVEL] Generating PRD(s)..."
     BRANCHES=$(prompt "/ticketmaster $FINAL_BLUEPRINT_FILE $LEVEL" --model claude-sonnet-4-6)
-    echo "⚪️ Finished creating branches and PRDs for current level."
+    if [[ -z "$BRANCHES" ]]; then
+        echo "❌ Error: Ticketmaster agent returned no branches for level [$LEVEL]. Aborting."
+        exit 1
+    else
+        echo "⚪️ Finished creating branches and PRDs for current level."
+    fi
 
     review_pull_requests "$BRANCHES"
 
@@ -165,6 +175,11 @@ while IFS= read -r LEVEL; do
         echo "⚪️ [$LEVEL] Generated backpressure for \"$BASE_BRANCH_NAME\"."
     done <<< "$BRANCHES"
 
+    if [[ -z "$BACKPRESSURE_BRANCHES" ]]; then
+        echo "❌ Error: No backpressure branches were generated for level [$LEVEL]. Aborting."
+        exit 1
+    fi
+
     review_pull_requests "$BACKPRESSURE_BRANCHES"
 
     echo "⚪️ [$LEVEL] Proceeding with implementation..."
@@ -185,6 +200,11 @@ while IFS= read -r LEVEL; do
 
         echo "⚪️ [$LEVEL] Implementation for \"$BASE_BRANCH_NAME\" completed."
     done <<< "$BACKPRESSURE_BRANCHES"
+
+    if [[ -z "$IMPLEMENTATION_BRANCHES" ]]; then
+        echo "❌ Error: No implementation branches were generated for level [$LEVEL]. Aborting."
+        exit 1
+    fi
 
     review_pull_requests "$IMPLEMENTATION_BRANCHES"
 done <<< "$TREE_LEVELS"
