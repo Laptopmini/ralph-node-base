@@ -2,18 +2,14 @@
 
 # ==============================================================================
 # RALPH LOOP: The test-gated, autonomous AI development cycle
-# Usage: ./ralph.sh [MAX_LOOPS]
+# Usage: ./ralph.sh <ARCHIVE_FOLDER>
 # ==============================================================================
 
 set -euo pipefail
 
 # Settings
 
-ARCHIVE_FOLDER=".prds"
 LOCK_FILE=".ralph.lock"
-
-# Default Options
-
 MAX_LOOPS=10
 
 # Functions
@@ -30,10 +26,13 @@ fi
 touch "$LOCK_FILE"
 trap "rm -f $LOCK_FILE" EXIT
 
-if [[ -n "${1:-}" && "${1:-}" != --* ]]; then
-    MAX_LOOPS="$1"
-    shift
+if [[ -z "${1:-}" ]]; then
+    echo "❌ Error: ARCHIVE_FOLDER argument is required."
+    echo "Usage: $0 <ARCHIVE_FOLDER>"
+    exit 1
 fi
+ARCHIVE_FOLDER="$1"
+shift
 
 if [ ! -f PRD.md ]; then
     echo "❌ Error: PRD.md not found."
@@ -59,8 +58,6 @@ while true; do
         PRD_TITLE=$(head -1 PRD.md | sed -E 's/^#+ (PRD: )?//')
         PRD_FILENAME=$(echo "$PRD_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed -E 's/-+/-/g' | sed -E 's/^-|-$//g')
 
-        # FIXME: THIS WONT WORK ANYMORE
-        # It needs to be a docs path
         ARCHIVE_PATH="$ARCHIVE_FOLDER/PRD.$PRD_FILENAME.md"
 
         COUNTER=1

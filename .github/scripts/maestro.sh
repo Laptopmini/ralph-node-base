@@ -172,6 +172,11 @@ while $MISSING_BLUEPRINT; do
     echo "⚪️ Created $FOLDER_NAME!"
 done
 
+if [[ -z "$FINAL_BLUEPRINT_FILE" ]]; then
+    echo "❌ Error: An issue occurred while preparing the implementation plan and its related files. Aborting."
+    exit 1
+fi
+
 echo "⚪️ Proceeding through implementation tree levels..."
 while IFS= read -r LEVEL; do
     echo "⚪️ [$LEVEL] Generating PRD(s)..."
@@ -220,7 +225,7 @@ while IFS= read -r LEVEL; do
 
         # Fail-fast: if any ralph loop fails, abort the entire run
         git checkout "$BASE_BRANCH_NAME" && git pull
-        npm i && npm run ralph
+        npm i && npm run ralph -- "$FOLDER_NAME"
         git add .
         git diff --cached --quiet || git commit -m "chore(ai): Update Ralph log"
         git push -u origin "$BASE_BRANCH_NAME"
