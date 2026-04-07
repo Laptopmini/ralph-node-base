@@ -2,7 +2,7 @@
 
 # ==============================================================================
 # MAESTRO: Automate the entire process
-# Usage: ./maestro.sh
+# Usage: ./maestro.sh <Your feature request paragraph>
 # ==============================================================================
 
 set -euo pipefail
@@ -12,6 +12,7 @@ set -euo pipefail
 LOCK_FILE=".maestro.lock"
 LOG_FILE="tmp/maestro.log"
 BLUEPRINT_FILE=".maestro.blueprint.md"
+BLUEPRINT_LEVELS_FILE=".maestro.blueprint.levels"
 REPO_SLUG=$(bash .github/scripts/repo-slug.sh)
 
 # Functions
@@ -80,7 +81,7 @@ cleanup() {
     local exit_code=$?
     rm -f "$LOCK_FILE" "$LOG_FILE"
     if [[ $exit_code -eq 0 ]]; then
-        rm -f "$BLUEPRINT_FILE"
+        rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE"
     fi
 }
 
@@ -111,12 +112,39 @@ FOLDER_NAME=""
 FINAL_BLUEPRINT_FILE=""
 MISSING_BLUEPRINT=true
 while $MISSING_BLUEPRINT; do
-    echo "⚪️ Generating implementation plan..."
-    TREE_LEVELS=$(prompt "/blueprint $*" --model claude-opus-4-6)
+    if [[ -e "$BLUEPRINT_FILE" ]] && [[ -e "$BLUEPRINT_LEVELS_FILE" ]]; then
+        echo "⚪️ Re-using existing implementation plan..."
+        TREE_LEVELS=$(cat "$BLUEPRINT_LEVELS_FILE")
 
-    if [[ -z "$TREE_LEVELS" ]]; then
-        echo "❌ Error: Blueprint agent returned no tree levels. Aborting."
-        exit 1
+        if [[ -z "$TREE_LEVELS" ]]; then
+            echo "❌ Error: Tree levels file is empty. You should regenerate the plan or define one. Aborting."
+            exit 1
+        fi
+    else
+        echo "⚪️ Generating implementation plan..."
+        TREE_LEVELS=$(prompt "/blueprint $*" --model claude-opus-4-6)
+
+        if [[ -z "$TREE_LEVELS" ]]; then
+            echo "🟠 Blueprint agent returned no tree levels. Retrying in 5s..."
+            sleep 5
+            continue
+        fi
+        echo "$TREE_LEVELS" > "$BLUEPRINT_LEVELS_FILE"
+    fi
+
+    if command -v code &>/dev/null; then
+        code "$BLUEPRINT_FILE"
+    else
+        echo "⚪️ Using implementation plan from $BLUEPRINT_FILE."
+    fi
+
+    read -p "💬 Do you wish to proceed with the implementation plan? (Y/n): " -r confirm
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        MISSING_BLUEPRINT=false
+    else
+        rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE"
+        echo "⚪️ User did not approve plan, trying again..."
+        continue
     fi
 
     FIRST_LINE=$(head -1 "$BLUEPRINT_FILE")
@@ -137,21 +165,11 @@ while $MISSING_BLUEPRINT; do
 
     mkdir -p "$FOLDER_NAME"
 
-    FINAL_BLUEPRINT_FILE="$FOLDER_NAME/blueprint.md"
+    FINAL_BLUEPRINT_FILE="$FOLDER_NAME/plan.md"
     mv "$BLUEPRINT_FILE" "$FINAL_BLUEPRINT_FILE"
+    mv "$BLUEPRINT_LEVELS_FILE" "$FOLDER_NAME/plan.levels"
 
-    echo "⚪️ Created $FINAL_BLUEPRINT_FILE!"
-
-    if command -v code &>/dev/null; then
-        code "$FINAL_BLUEPRINT_FILE"
-    fi
-
-    read -p "💬 Does the blueprint look accurate to you to proceed with generating PRD(s) for it? (Y/n): " -r confirm
-    if [[ "$confirm" =~ ^[Yy]$ ]]; then
-        MISSING_BLUEPRINT=false
-    else
-        rm -rf "$BLUEPRINT_FILE" "$FOLDER_NAME"
-    fi
+    echo "⚪️ Created $FOLDER_NAME!"
 done
 
 echo "⚪️ Proceeding through implementation tree levels..."
