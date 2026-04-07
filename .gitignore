@@ -32,10 +32,7 @@ vite.config.ts.timestamp-*
 !.ralph.log
 
 # Maestro files
-.maestro.lock
-.maestro.log
-.maestro.blueprint.md
-.maestro.blueprint.levels
+.maestro.*
 
 # E2E & Unit tests
 test-results/

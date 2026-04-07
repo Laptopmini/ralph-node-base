@@ -14,6 +14,7 @@ LOG_FILE="/tmp/maestro.log"
 LOG_FILE_BACKUP="maestro.log"
 BLUEPRINT_FILE=".maestro.blueprint.md"
 BLUEPRINT_LEVELS_FILE=".maestro.blueprint.levels"
+SLICE_FILE=".maestro.level-"
 REPO_SLUG=$(bash .github/scripts/repo-slug.sh)
 
 # Functions
@@ -80,7 +81,7 @@ cleanup() {
     local exit_code=$?
     rm -f "$LOCK_FILE" "$LOG_FILE"
     if [[ $exit_code -eq 0 ]]; then
-        rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE"
+        rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE" "$SLICE_FILE"*
     fi
 }
 
@@ -192,9 +193,22 @@ if [[ ! -s "$BLUEPRINT_FILE" ]]; then
 fi
 
 echo "⚪️ Proceeding through implementation tree levels..."
+LEVEL_INDEX=0
 while IFS= read -r LEVEL; do
+    LEVEL_INDEX=$((LEVEL_INDEX + 1))
+    SLICED="$SLICE_FILE$LEVEL_INDEX.md"
+    echo "⚪️ [$LEVEL] Slicing plan into \"$SLICED\"..."
+    bash .github/scripts/slice-plan.sh "$BLUEPRINT_FILE" "$LEVEL" "$SLICED"
+    if [ ! -s "$SLICED" ]; then
+        echo "❌ Error: Sliced plan '$SLICED' is missing or empty. Aborting."
+        exit 1
+    fi
+
     echo "⚪️ [$LEVEL] Generating PRD(s)..."
-    BRANCHES=$(prompt "/ticketmaster $BLUEPRINT_FILE $LEVEL" --allowedTools "Read,Write,Bash,Glob,Grep" --model claude-sonnet-4-6)
+    BRANCHES=$(prompt "/ticketmaster $SLICED" --allowedTools "Read,Write,Bash,Glob,Grep" --model claude-sonnet-4-6)
+
+    mv -f "$SLICED" "$FOLDER_NAME/plan-level-$LEVEL_INDEX.md"
+
     if [[ -z "$BRANCHES" ]]; then
         echo "❌ Error: Ticketmaster agent returned no branches for level [$LEVEL]. Aborting."
         exit 1
