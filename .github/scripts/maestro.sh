@@ -10,7 +10,7 @@ set -euo pipefail
 # Settings
 
 LOCK_FILE=".maestro.lock"
-LOG_FILE="tmp/maestro.log"
+LOG_FILE="/tmp/maestro.log"
 BLUEPRINT_FILE=".maestro.blueprint.md"
 BLUEPRINT_LEVELS_FILE=".maestro.blueprint.levels"
 REPO_SLUG=$(bash .github/scripts/repo-slug.sh)
@@ -18,6 +18,8 @@ REPO_SLUG=$(bash .github/scripts/repo-slug.sh)
 # Functions
 
 prompt() { bash .github/scripts/prompt.sh "$@"; }
+
+summarizer() { prompt "/summarizer $*" --allowedTools "Read,Bash(git diff:*),Bash(gh pr create:*),Bash(gh pr view:*)" --model claude-haiku-4-5; }
 
 view_pull_requests() {
     read -n 1 -s -r -p "💬 Are you ready to review the Pull Request(s)? Press any key to open in browser..."
@@ -88,11 +90,14 @@ fi
 
 touch "$LOCK_FILE"
 trap cleanup EXIT
+trap 'exit 130' INT HUP TERM
 
-if [ -z "$*" ]; then
-    echo "❌ Error: No feature(s) request paragraph/description provided."
-    echo "Usage: $0 [Your feature request paragraph]"
-    exit 1
+if [ ! -s "$BLUEPRINT_FILE" ] || [ ! -s "$BLUEPRINT_LEVELS_FILE" ]; then
+    if [ -z "$*" ]; then
+        echo "❌ Error: No feature(s) request paragraph/description provided."
+        echo "Usage: $0 [Your feature request paragraph]"
+        exit 1
+    fi
 fi
 
 # Capture all output to the log file
@@ -105,8 +110,9 @@ TREE_LEVELS=""
 FOLDER_NAME=""
 FINAL_BLUEPRINT_FILE=""
 MISSING_BLUEPRINT=true
+REUSING_EXISTING_PLAN=false
 while $MISSING_BLUEPRINT; do
-    if [[ -e "$BLUEPRINT_FILE" ]] && [[ -e "$BLUEPRINT_LEVELS_FILE" ]]; then
+    if [[ -s "$BLUEPRINT_FILE" ]] && [[ -s "$BLUEPRINT_LEVELS_FILE" ]]; then
         echo "⚪️ Re-using existing implementation plan..."
         TREE_LEVELS=$(cat "$BLUEPRINT_LEVELS_FILE")
 
@@ -114,9 +120,10 @@ while $MISSING_BLUEPRINT; do
             echo "❌ Error: Tree levels file is empty. You should regenerate the plan or define one. Aborting."
             exit 1
         fi
+        REUSING_EXISTING_PLAN=true
     else
         echo "⚪️ Generating implementation plan..."
-        TREE_LEVELS=$(prompt "/blueprint $*" --model claude-opus-4-6)
+        TREE_LEVELS=$(prompt "/blueprint $*" --allowedTools "Read,Glob,Grep,Write" --model claude-opus-4-6)
 
         if [[ -z "$TREE_LEVELS" ]]; then
             echo "🟠 Blueprint agent returned no tree levels. Retrying in 5s..."
@@ -137,6 +144,13 @@ while $MISSING_BLUEPRINT; do
         MISSING_BLUEPRINT=false
     else
         rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE"
+
+        if [ -z "$*" ] && ! $REUSING_EXISTING_PLAN; then
+            echo "❌ Error: User declined existing plan, but no feature(s) request paragraph/description provided."
+            echo "Usage: $0 [Your feature request paragraph]"
+            exit 1
+        fi
+
         echo "⚪️ User did not approve plan, trying again..."
         continue
     fi
@@ -174,7 +188,7 @@ fi
 echo "⚪️ Proceeding through implementation tree levels..."
 while IFS= read -r LEVEL; do
     echo "⚪️ [$LEVEL] Generating PRD(s)..."
-    BRANCHES=$(prompt "/ticketmaster $FINAL_BLUEPRINT_FILE $LEVEL" --model claude-sonnet-4-6)
+    BRANCHES=$(prompt "/ticketmaster $FINAL_BLUEPRINT_FILE $LEVEL" --allowedTools "Read,Write,Bash,Glob,Grep" --model claude-sonnet-4-6)
     if [[ -z "$BRANCHES" ]]; then
         echo "❌ Error: Ticketmaster agent returned no branches for level [$LEVEL]. Aborting."
         exit 1
@@ -197,7 +211,7 @@ while IFS= read -r LEVEL; do
         git diff --cached --quiet || git commit -m "chore(ai): Backpressure"
         git push -u origin "$BACKPRESSURE_BRANCH_NAME"
 
-        BS_OUTPUT=$(prompt "/summarizer $REPO_SLUG $BACKPRESSURE_BRANCH_NAME $BASE_BRANCH_NAME" --model claude-haiku-4-5)
+        BS_OUTPUT=$(summarizer "$REPO_SLUG" "$BACKPRESSURE_BRANCH_NAME" "$BASE_BRANCH_NAME")
         [ -n "$BACKPRESSURE_BRANCHES" ] && BACKPRESSURE_BRANCHES+=$'\n'
         BACKPRESSURE_BRANCHES+="$BS_OUTPUT"
 
@@ -221,7 +235,7 @@ while IFS= read -r LEVEL; do
         git diff --cached --quiet || git commit -m "chore(ai): Update Ralph log"
         git push -u origin "$BASE_BRANCH_NAME"
 
-        BS_OUTPUT=$(prompt "/summarizer $REPO_SLUG $BASE_BRANCH_NAME maestro" --model claude-haiku-4-5)
+        BS_OUTPUT=$(summarizer "$REPO_SLUG" "$BASE_BRANCH_NAME" maestro)
         [ -n "$IMPLEMENTATION_BRANCHES" ] && IMPLEMENTATION_BRANCHES+=$'\n'
         IMPLEMENTATION_BRANCHES+="$BS_OUTPUT"
 
@@ -251,7 +265,7 @@ mv "$LOG_FILE" "$FOLDER_NAME/maestro.log"
 git add .
 git commit -m "chore(ai): Add Maestro log"
 git push -u origin maestro
-prompt "/summarizer $REPO_SLUG maestro main" --model claude-haiku-4-5
+summarizer "$REPO_SLUG" maestro main
 
 view_pull_requests
 

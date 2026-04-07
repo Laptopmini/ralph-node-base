@@ -12,4 +12,5 @@ docs
 .github/scripts/ralph.sh
 .github/scripts/fork.sh
 .github/scripts/maestro.sh
+.github/scripts/prompt.sh
 .github/prompts/ralph.md
