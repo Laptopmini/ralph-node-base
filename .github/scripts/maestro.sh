@@ -43,7 +43,7 @@ review_pull_requests() {
     local UNVERIFIED=true
     while $UNVERIFIED; do
         local ALL_MERGED=true
-        while IFS=$'\t' read -r _PRD_NUMBER PR_NUMBER; do
+        while IFS=$'\t' read -r BRANCH_NAME PR_NUMBER; do
             if [ -z "$PR_NUMBER" ]; then
                 # Unable to extract PR number from line
                 ALL_MERGED=false
@@ -58,8 +58,6 @@ review_pull_requests() {
             fi
 
             # Clean up the local branch
-            local BRANCH_NAME
-            BRANCH_NAME=$(gh pr view "$PR_NUMBER" --repo "$REPO_SLUG" --json headRefName --jq '.headRefName')
             if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
                 git branch -D "$BRANCH_NAME"
             fi

@@ -3,7 +3,7 @@ name: summarizer
 description: >
   Generates a diff-based PR description and opens a pull request for a prd branch.
   Activated ONLY by the slash command "/summarizer" followed by three arguments:
-  repository name, current branch, and base branch.
+  repository name, head branch, and base branch.
   Do NOT use this skill for any other phrasing. This skill is exclusively command-driven.
 disable-model-invocation: true
 ---
@@ -19,13 +19,13 @@ Analyzes the diff between a PRD branch and a base branch, generates a profession
 This skill is triggered exclusively by the slash command:
 
 ```
-/summarizer <repository> <current-branch> <base-branch>
+/summarizer <repository> <head-branch> <base-branch>
 ```
 
 **Arguments (positional, in order):**
 
 1. `<repository>` — GitHub `owner/repo` slug (e.g., `Laptopmini/ralph-maestro-demo`)
-2. `<current-branch>` — The branch with changes (e.g., `prd-1`)
+2. `<head-branch>` — The branch with changes (e.g., `prd-1`)
 3. `<base-branch>` — The branch to diff against (e.g., `main`)
 
 If the user types `/summarizer` with missing arguments, respond:
@@ -42,20 +42,14 @@ Do not run the workflow in that case.
 
 Extract the three arguments from the user's message.
 
-**Validate the current branch name:** It must start with `prd-`. If it does not, exit immediately with a non-zero exit code:
-
-```bash
-exit 1
-```
-
-**Extract the ticket number:** Take the portion of the branch name after `prd-`. For example, `prd-3` yields ticket number `3`. This is the `<ticket-number>` used in the PR title.
+**Extract the ticket number:** Match the head branch name against the pattern `prd-([0-9]+)` and capture the digits as `<ticket-number>` (e.g. `prd-3` → `3`, `prd-3-requirements` → `3`). If the head branch does not match this pattern, there is no ticket number — do not exit; the conventional commit prefix in Step 3 will fall back to a default.
 
 ### Step 1 — Generate the diff
 
-Run `git diff` between the base branch and the current branch:
+Run `git diff` between the base branch and the head branch:
 
 ```bash
-git diff <base-branch>..<current-branch>
+git diff <base-branch>..<head-branch>
 ```
 
 If the diff command fails or produces no output, exit with a non-zero exit code.
@@ -93,29 +87,35 @@ Also generate a short, descriptive **Title** for the PR (under 60 characters, no
 
 Use `gh pr create` to open the pull request:
 
+**Determine the conventional-commit prefix:**
+- If `<ticket-number>` was extracted in Step 0, use `feat(<ticket-number>)` (e.g. `feat(1)`).
+- Otherwise, use `feat(ai)`.
+
+This value is `<commit-prefix>` below.
+
 ```bash
 gh pr create \
   --repo <repository> \
-  --title "prd(<ticket-number>): <title>" \
+  --title "<commit-prefix>: <title>" \
   --body "<pr-description>" \
   --base <base-branch> \
-  --head <current-branch>
+  --head <head-branch>
 ```
 
 Where:
 - `<repository>` is the first argument (e.g., `Laptopmini/ralph-maestro-demo`)
-- `<ticket-number>` is extracted from the branch name (e.g., `1`)
+- `<commit-prefix>` is `feat(<ticket-number>)` when a ticket number was extracted, otherwise `feat(ai)`
 - `<title>` is the generated PR title (e.g., `Timer Logic Module`)
 - `<pr-description>` is the full generated PR description from Step 2
 - `<base-branch>` is the third argument (e.g., `main`)
-- `<current-branch>` is the second argument (e.g., `prd-1`)
+- `<head-branch>` is the second argument (e.g., `prd-1`)
 
 If `gh pr create` fails, exit with a non-zero exit code.
 
 **Capture the PR number:** Extract the `<pr-number>` from the URL returned by `gh pr create`, or query it with:
 
 ```bash
-gh pr view <current-branch> --repo <repository> --json number --jq .number
+gh pr view <head-branch> --repo <repository> --json number --jq .number
 ```
 
 ### Step 4 — Output result
@@ -123,15 +123,17 @@ gh pr view <current-branch> --repo <repository> --json number --jq .number
 Output ONLY the following single line with no other text before or after it:
 
 ```
-prd-<ticket-number><TAB><pr-number>
+<head-branch><TAB><pr-number>
 ```
+
+Where `<head-branch>` is the second argument passed in Step 0 (the same value used for `--head` in Step 3), and `<pr-number>` is the PR number captured in Step 3.
 
 Fields are separated by a single ASCII tab character (`\t`, 0x09). Do not emit parentheses, `#`, or any surrounding prose. Do not emit a trailing newline beyond the single record.
 
-For example, ticket number 3 with PR number 12 (where the gap is a real tab character):
+For example, head branch `prd-3-requirements` with PR number 12 (where the gap is a real tab character):
 
 ```
-prd-3	12
+prd-3-requirements	12
 ```
 
 This output is consumed by a bash script and must be machine-readable.
@@ -150,15 +152,15 @@ Given the command:
 
 The skill would:
 
-1. Validate `prd-1` starts with `prd-` — pass
-2. Extract ticket number `1`
-3. Run `git diff main..prd-1`
-4. Analyze the diff and generate:
+1. Match `prd-1` against `prd-([0-9]+)` and extract ticket number `1`
+2. Run `git diff main..prd-1`
+3. Analyze the diff and generate:
    - **Title**: `Timer Logic Module`
    - **Summary**: description of the changes
    - **Changes Made**: bulleted list of key modifications
    - **Impacted Files**: list of affected files
-5. Run `gh pr create --repo Laptopmini/ralph-maestro-demo --title "prd(1): Timer Logic Module" --body "..." --base main --head prd-1`
+4. Determine the commit prefix: `feat(1)` (since a ticket number was extracted)
+5. Run `gh pr create --repo Laptopmini/ralph-maestro-demo --title "feat(1): Timer Logic Module" --body "..." --base main --head prd-1`
 6. Extract PR number (e.g., `12`) from the created PR
 7. Output `prd-1<TAB>12` (a single line, where `<TAB>` is a literal ASCII tab character)
 
@@ -169,6 +171,5 @@ The skill would:
 Exit with a non-zero exit code if any of the following occur:
 
 - Missing or insufficient arguments
-- Branch name does not start with `prd-`
 - `git diff` fails or produces empty output
 - `gh pr create` fails
