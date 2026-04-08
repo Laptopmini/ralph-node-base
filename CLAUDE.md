@@ -69,7 +69,7 @@ The `[test: command]` annotation specifies targeted validation for that task. If
 | `.github/scripts/maestro.sh` | Top-level orchestrator across all phases |
 | `.github/scripts/ralph.sh` | Test-gated implementation loop (one PRD at a time) |
 | `.github/scripts/backpressure.sh` | Failing-test generator for the active PRD |
-| `.github/scripts/prompt.sh` | Engine wrapper (Claude Code / OpenCode); handles rate-limit & error exit codes |
+| `.github/scripts/prompt.sh` | Claude Code CLI wrapper; handles rate-limit & error exit codes |
 | `.github/scripts/fork.sh` | One-shot repo duplication helper |
 | `.github/scripts/repo-slug.sh` | Parses `owner/repo` from the `origin` remote |
 | `.github/prompts/ralph.md` | System prompt injected into the Ralph agent each cycle |

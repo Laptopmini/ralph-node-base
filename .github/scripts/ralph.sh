@@ -122,7 +122,7 @@ $PRD_CONTENT
     set +e
     OUTPUT=$(prompt "$AGENT_PROMPT" \
         --allowedTools "Read,Edit,Write,Glob,Grep,Bash" \
-        --model claude-sonnet-4-6)
+        --model qwen/qwen3.5-35b-a3b)
     PROMPT_EXIT=$?
     set -e
 

@@ -21,7 +21,7 @@ REPO_SLUG=$(bash .github/scripts/repo-slug.sh)
 
 prompt() { bash .github/scripts/prompt.sh "$@"; }
 
-summarizer() { prompt "/summarizer $*" --allowedTools "Read,Bash(git diff:*),Bash(gh pr create:*),Bash(gh pr view:*)" --model claude-haiku-4-5; }
+summarizer() { prompt "/summarizer $*" --allowedTools "Read,Bash(git diff:*),Bash(gh pr create:*),Bash(gh pr view:*)" --model qwen/qwen3.5-35b-a3b; }
 
 ask_continue() { read -n 1 -s -r -p "$*"$'\n' < /dev/tty; }
 
@@ -138,7 +138,7 @@ while $MISSING_BLUEPRINT; do
         REUSING_EXISTING_PLAN=true
     else
         echo "⚪️ Generating implementation plan..."
-        TREE_LEVELS=$(prompt "/blueprint $*" --allowedTools "Read,Glob,Grep,Write" --model claude-opus-4-6)
+        TREE_LEVELS=$(prompt "/blueprint $*" --allowedTools "Read,Glob,Grep,Write" --model opus)
 
         if [[ -z "$TREE_LEVELS" ]]; then
             echo "🟠 Blueprint agent returned no tree levels. Retrying in 5s..."
@@ -212,7 +212,7 @@ while IFS= read -r LEVEL; do
     fi
 
     echo "⚪️ Generating PRD(s)..."
-    BRANCHES=$(prompt "/ticketmaster $SLICED" --allowedTools "Read,Write,Bash,Glob,Grep" --model claude-sonnet-4-6 | grep $'\t' || true)
+    BRANCHES=$(prompt "/ticketmaster $SLICED" --allowedTools "Read,Write,Bash,Glob,Grep" --model qwen/qwen3.5-35b-a3b | grep $'\t' || true)
 
     mv -f "$SLICED" "$FOLDER_NAME/plan-level-$LEVEL_INDEX.md"
 
@@ -230,6 +230,9 @@ while IFS= read -r LEVEL; do
         echo "⚪️ Finished creating branches and PRDs for current level."
     fi
 
+    # FIXME: Ticketmaster is outputting the requirments branch
+    # Meaning `BASE_BRANCH_NAME` below is "prd-1-requirements", which is wrong
+    # If we make it output `prd-1`, then make sure `review_pull_requests` determines head branch based on PR number
     review_pull_requests "$BRANCHES"
 
     echo "⚪️ Generating backpressure..."

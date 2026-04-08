@@ -2,37 +2,19 @@
 
 # ==============================================================================
 # BACKPRESSURE GENERATOR: Generate tests based on current PRD
-# Usage: ./backpressure.sh [--engine claude|opencode]
+# Usage: ./backpressure.sh
 # ==============================================================================
 
 set -euo pipefail
 
+# Functions
+
+prompt() { bash .github/scripts/prompt.sh "$@"; }
+
+# Main
+
 LEDGER=$(tail -n 5 .agent-ledger.jsonl || echo "No history.")
 PRD=$(cat PRD.md)
-ENGINE="claude"
-
-while [[ "$#" -gt 0 ]]; do
-  case $1 in
-    --engine)
-      ENGINE="$2"
-      if [[ "$ENGINE" != "claude" && "$ENGINE" != "opencode" ]]; then
-        echo "Error: Unsupported engine '$ENGINE'. Use '$0 --engine claude' or '$0 --engine opencode'."
-        exit 1
-      fi
-      shift 2
-      ;;
-    *)
-      echo "Error: Unknown argument '$1'."
-      echo "Usage: $0 [MAX_LOOPS] [--engine claude|opencode]"
-      exit 1
-      ;;
-  esac
-done
-
-if ! command -v $ENGINE &> /dev/null; then
-    echo "Error: $ENGINE CLI is not installed."
-    exit 1
-fi
 
 echo "🟢 Starting to generate backpressure..."
 
@@ -79,11 +61,6 @@ $LEDGER
 $PRD
 "
 
-echo "🟡 Handing control to $ENGINE..."
-if [[ "$ENGINE" == "claude" ]]; then
-    claude -p "$AGENT_PROMPT" --allowedTools "Read,Write,Glob,Grep" --model claude-opus-4-6
-else
-    opencode run "$AGENT_PROMPT"
-fi
+prompt "$AGENT_PROMPT" --allowedTools "Read,Write,Glob,Grep" --model qwen/qwen3.5-35b-a3b
 
 echo "✅ Tests generated. Please review them, and then execute the Ralph loop."

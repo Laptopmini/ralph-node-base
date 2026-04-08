@@ -59,8 +59,8 @@ PRDs are normally authored by `/ticketmaster` from the blueprint, but you can ha
 
 | Tool | Role |
 |------|------|
-| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Default AI engine |
-| [OpenCode](https://opencode.ai/docs) | Alternative AI engine |
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Agentic CLI |
+| [LM Studio](https://lmstudio.ai/) | Local LLM Server |
 | [Jest](https://jestjs.io/) | Unit testing |
 | [Playwright](https://playwright.dev/) | E2E testing |
 | [Biome](https://biomejs.dev/) | Linting and formatting |
