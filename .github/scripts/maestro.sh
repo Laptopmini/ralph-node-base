@@ -23,12 +23,12 @@ prompt() { bash .github/scripts/prompt.sh "$@"; }
 
 summarizer() { prompt "/summarizer $*" --allowedTools "Read,Bash(git diff:*),Bash(gh pr create:*),Bash(gh pr view:*)" --model claude-haiku-4-5; }
 
-ask_continue() { read -n 1 -s -r -p "$@" < /dev/tty; }
+ask_continue() { read -n 1 -s -r -p "$*"$'\n' < /dev/tty; }
 
 view_pull_requests() {
     ask_continue "💬 Are you ready to review the Pull Request(s)? Press any key to open in browser..."
     local url
-    url=$(gh repo view --json url -q ".url + \"/pulls\"")
+    url=$(gh repo view -R "$REPO_SLUG" --json url -q ".url + \"/pulls\"")
     if command -v xdg-open &>/dev/null; then
         xdg-open "$url"
     elif command -v open &>/dev/null; then
@@ -57,7 +57,7 @@ review_pull_requests() {
             fi
 
             local STATE
-            STATE=$(gh pr view "$PR_NUMBER" --json state --jq '.state')
+            STATE=$(gh pr view "$PR_NUMBER" -R "$REPO_SLUG" --json state --jq '.state')
             if [ "$STATE" != "MERGED" ]; then
                 ALL_MERGED=false
                 break
@@ -195,28 +195,29 @@ fi
 echo "⚪️ Proceeding through implementation tree levels..."
 LEVEL_INDEX=0
 while IFS= read -r LEVEL; do
+    echo "⚪️ Beginning level \"$LEVEL\"..."
     LEVEL_INDEX=$((LEVEL_INDEX + 1))
     SLICED="$SLICE_FILE$LEVEL_INDEX.md"
-    echo "⚪️ [$LEVEL] Slicing plan into \"$SLICED\"..."
+    echo "⚪️ Slicing plan into \"$SLICED\"..."
     bash .github/scripts/slice-plan.sh "$BLUEPRINT_FILE" "$LEVEL" "$SLICED"
     if [ ! -s "$SLICED" ]; then
         echo "❌ Error: Sliced plan '$SLICED' is missing or empty. Aborting."
         exit 1
     fi
 
-    echo "⚪️ [$LEVEL] Generating PRD(s)..."
+    echo "⚪️ Generating PRD(s)..."
     BRANCHES=$(prompt "/ticketmaster $SLICED" --allowedTools "Read,Write,Bash,Glob,Grep" --model claude-sonnet-4-6 | grep $'\t' || true)
 
     mv -f "$SLICED" "$FOLDER_NAME/plan-level-$LEVEL_INDEX.md"
 
     if [[ -z "$BRANCHES" ]]; then
-        echo "❌ Error: Ticketmaster agent returned no branches for level [$LEVEL]. Aborting."
+        echo "❌ Error: Ticketmaster agent returned no branches for level \"$LEVEL\". Aborting."
         exit 1
     else
         EXPECTED_COUNT=$(echo "$LEVEL" | tr ',' '\n' | grep -c .)
         ACTUAL_COUNT=$(echo "$BRANCHES" | grep -c .)
         if [[ "$EXPECTED_COUNT" != "$ACTUAL_COUNT" ]]; then
-            echo "❌ Error: Ticketmaster returned $ACTUAL_COUNT branch(es) for level [$LEVEL] but $EXPECTED_COUNT were expected. Aborting."
+            echo "❌ Error: Ticketmaster returned $ACTUAL_COUNT branch(es) for level \"$LEVEL\" but $EXPECTED_COUNT were expected. Aborting."
             exit 1
         fi
 
@@ -225,7 +226,7 @@ while IFS= read -r LEVEL; do
 
     review_pull_requests "$BRANCHES"
 
-    echo "⚪️ [$LEVEL] Generating backpressure..."
+    echo "⚪️ Generating backpressure..."
     BACKPRESSURE_BRANCHES=""
     while IFS=$'\t' read -r BASE_BRANCH_NAME _PR_NUMBER; do
         BACKPRESSURE_BRANCH_NAME="$BASE_BRANCH_NAME-backpressure"
@@ -242,17 +243,17 @@ while IFS= read -r LEVEL; do
         [ -n "$BACKPRESSURE_BRANCHES" ] && BACKPRESSURE_BRANCHES+=$'\n'
         BACKPRESSURE_BRANCHES+="$BS_OUTPUT"
 
-        echo "⚪️ [$LEVEL] Generated backpressure for \"$BASE_BRANCH_NAME\"."
+        echo "⚪️ Generated backpressure for \"$BASE_BRANCH_NAME\"."
     done <<< "$BRANCHES"
 
     if [[ -z "$BACKPRESSURE_BRANCHES" ]]; then
-        echo "❌ Error: No backpressure branches were generated for level [$LEVEL]. Aborting."
+        echo "❌ Error: No backpressure branches were generated for level \"$LEVEL\". Aborting."
         exit 1
     fi
 
     review_pull_requests "$BACKPRESSURE_BRANCHES"
 
-    echo "⚪️ [$LEVEL] Proceeding with implementation..."
+    echo "⚪️ Proceeding with implementation..."
     IMPLEMENTATION_BRANCHES=""
     while IFS=$'\t' read -r BASE_BRANCH_NAME _PR_NUMBER; do
         # Fail-fast: if any ralph loop fails, abort the entire run
@@ -266,11 +267,11 @@ while IFS= read -r LEVEL; do
         [ -n "$IMPLEMENTATION_BRANCHES" ] && IMPLEMENTATION_BRANCHES+=$'\n'
         IMPLEMENTATION_BRANCHES+="$BS_OUTPUT"
 
-        echo "⚪️ [$LEVEL] Implementation for \"$BASE_BRANCH_NAME\" completed."
+        echo "⚪️ Implementation for \"$BASE_BRANCH_NAME\" completed."
     done <<< "$BACKPRESSURE_BRANCHES"
 
     if [[ -z "$IMPLEMENTATION_BRANCHES" ]]; then
-        echo "❌ Error: No implementation branches were generated for level [$LEVEL]. Aborting."
+        echo "❌ Error: No implementation branches were generated for level \"$LEVEL\". Aborting."
         exit 1
     fi
 
