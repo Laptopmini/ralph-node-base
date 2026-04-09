@@ -118,27 +118,17 @@ Then use `gh pr create` to open a PR, passing `--repo "$REPO_SLUG"`:
 
 If a PR already exists for this head/base combination, skip PR creation but retrieve its PR number.
 
-**Retain the PR number** returned by `gh pr create` (or from the existing PR) for use in the summary output. You can extract the number from the URL returned by `gh pr create`, or by querying with `gh pr view prd-<ticket-number>-requirements --json number --jq .number`.
+Capture the PR number returned by `gh pr create` (or from the existing PR). You can extract it from the URL returned by `gh pr create`, or query it with `gh pr view prd-<ticket-number>-requirements --json number --jq .number`.
 
-### Step 3 — Output summary
+#### 2f — Record the PR in `.maestro.pull-requests.tsv`
 
-**This step is MANDATORY!** If the output is not captured, the workflow will fail. Do not forget to output the PR number!
+Immediately after the PR number is known, append a single tab-separated line to `.maestro.pull-requests.tsv` at the repository root (create the file if it does not exist). Do this once per ticket, before moving on to the next:
 
-After all tickets have been processed, output ONLY the records below with no other text before or after them — no backticks, no blank lines, no code fences, nothing else:
+```bash
+printf 'prd-<ticket-number>\t<pr-number>\n' >> .maestro.pull-requests.tsv
+```
 
-`<base-branch-name><TAB><pr-number>`
-
-One record per processed ticket, one record per line, in ascending ticket order. `<base-branch-name>` is the name `prd-<ticket-number>` of the base branch created for that ticket during Step 2a (e.g., `prd-1`), and `<pr-number>` is the pull request number opened (or already existing) for that ticket's requirements branch.
-
-Fields are separated by a single ASCII tab character (`\t`, 0x09). Do not emit parentheses, `#`, backticks, code fences, blank lines, or any surrounding prose.
-
-**Example output** (for a plan with three tickets, where the gaps are real tab characters):
-
-prd-1	12
-prd-2	13
-prd-3	14
-
-Do not output any other text BEFORE or AFTER this block. This output is consumed by a bash script and must be machine-readable.
+Do not commit it (it is gitignored). Do not write any other content to it.
 
 ---
 
@@ -243,5 +233,5 @@ Before generating each PRD, verify:
 - [ ] Context section includes only information relevant to this specific ticket
 - [ ] Constraints are copied faithfully from the implementation plan
 - [ ] The PRD is written clearly enough for a junior developer to follow without external context
-- [ ] The number of records in my Step 3 output equals the number of `#### Ticket` sections in the input file
 - [ ] Every branch name I created matches `prd-<N>-requirements` where `N` is the ordinal from a `#### Ticket N:` heading in the input file
+- [ ] `.maestro.pull-requests.tsv` contains exactly one line per processed ticket, in the form `prd-<N>\t<pr-number>`

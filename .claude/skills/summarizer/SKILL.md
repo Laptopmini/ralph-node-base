@@ -127,25 +127,17 @@ If `gh pr create` fails, exit with a non-zero exit code.
 gh pr view <head-branch> --repo <repository> --json number --jq .number
 ```
 
-### Step 4 — Output result
+### Step 4 — Record the PR in `.maestro.pull-requests.tsv`
 
-Output ONLY the following single line with no other text before or after it:
+Append a single tab-separated line to `.maestro.pull-requests.tsv` at the repository root (create the file if it does not exist):
 
-```
-<base-branch><TAB><pr-number>
+```bash
+printf '%s\t%s\n' "<base-branch>" "<pr-number>" >> .maestro.pull-requests.tsv
 ```
 
 Where `<base-branch>` is the third argument passed in Step 0 (the same value used for `--base` in Step 3), and `<pr-number>` is the PR number captured in Step 3.
 
-Fields are separated by a single ASCII tab character (`\t`, 0x09). Do not emit parentheses, `#`, or any surrounding prose. Do not emit a trailing newline beyond the single record.
-
-For example, base branch `prd-3` with PR number 12 (where the gap is a real tab character):
-
-```
-prd-3	12
-```
-
-This output is consumed by a bash script and must be machine-readable.
+This file is the canonical handoff to `maestro.sh`. Do not commit it (it is gitignored). Do not write any other content to it. Do not emit the record to stdout.
 
 If any step failed, exit with a non-zero exit code.
 
@@ -171,7 +163,7 @@ The skill would:
 4. Determine the commit prefix: `feat(1)` (since a ticket number was extracted)
 5. Write the PR description to a temp file and run `gh pr create --repo Laptopmini/ralph-maestro-demo --title "feat(1): Timer Logic Module" --body-file /tmp/pr-body-XXXXXX.md --base main --head prd-1`
 6. Extract PR number (e.g., `12`) from the created PR
-7. Output `prd-1<TAB>12` (a single line, where `<TAB>` is a literal ASCII tab character)
+7. Append `main\t12` to `.maestro.pull-requests.tsv`
 
 ---
 
