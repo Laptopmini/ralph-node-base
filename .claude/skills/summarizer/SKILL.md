@@ -123,17 +123,17 @@ gh pr view <head-branch> --repo <repository> --json number --jq .number
 Output ONLY the following single line with no other text before or after it:
 
 ```
-<head-branch><TAB><pr-number>
+<base-branch><TAB><pr-number>
 ```
 
-Where `<head-branch>` is the second argument passed in Step 0 (the same value used for `--head` in Step 3), and `<pr-number>` is the PR number captured in Step 3.
+Where `<base-branch>` is the third argument passed in Step 0 (the same value used for `--base` in Step 3), and `<pr-number>` is the PR number captured in Step 3.
 
 Fields are separated by a single ASCII tab character (`\t`, 0x09). Do not emit parentheses, `#`, or any surrounding prose. Do not emit a trailing newline beyond the single record.
 
-For example, head branch `prd-3-requirements` with PR number 12 (where the gap is a real tab character):
+For example, base branch `prd-3` with PR number 12 (where the gap is a real tab character):
 
 ```
-prd-3-requirements	12
+prd-3	12
 ```
 
 This output is consumed by a bash script and must be machine-readable.

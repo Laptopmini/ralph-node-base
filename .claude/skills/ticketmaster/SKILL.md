@@ -124,17 +124,17 @@ If a PR already exists for this head/base combination, skip PR creation but retr
 
 After all tickets have been processed, output ONLY the records below with no other text before or after them — no backticks, no blank lines, no code fences, nothing else:
 
-`<head-branch-name><TAB><pr-number>`
+`<base-branch-name><TAB><pr-number>`
 
-One record per processed ticket, one record per line, in ascending ticket order. `<head-branch-name>` is the name `prd-<ticket-number>-requirements` of the head branch created for that ticket during Step 2a (e.g., `prd-1-requirements`), and `<pr-number>` is the pull request number opened (or already existing) for that ticket's requirements branch.
+One record per processed ticket, one record per line, in ascending ticket order. `<base-branch-name>` is the name `prd-<ticket-number>` of the base branch created for that ticket during Step 2a (e.g., `prd-1`), and `<pr-number>` is the pull request number opened (or already existing) for that ticket's requirements branch.
 
 Fields are separated by a single ASCII tab character (`\t`, 0x09). Do not emit parentheses, `#`, backticks, code fences, blank lines, or any surrounding prose.
 
 **Example output** (for a plan with three tickets, where the gaps are real tab characters):
 
-prd-1-requirements	12
-prd-2-requirements	13
-prd-3-requirements	14
+prd-1	12
+prd-2	13
+prd-3	14
 
 Do not output any other text BEFORE or AFTER this block. This output is consumed by a bash script and must be machine-readable.
 

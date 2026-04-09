@@ -52,7 +52,7 @@ review_pull_requests() {
     local UNVERIFIED=true
     while $UNVERIFIED; do
         local ALL_MERGED=true
-        while IFS=$'\t' read -r BRANCH_NAME PR_NUMBER; do
+        while IFS=$'\t' read -r _BASE_BRANCH_NAME PR_NUMBER; do
             if [ -z "$PR_NUMBER" ]; then
                 # Unable to extract PR number from line
                 ALL_MERGED=false
@@ -67,8 +67,9 @@ review_pull_requests() {
             fi
 
             # Clean up the local branch
-            if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
-                git branch -D "$BRANCH_NAME"
+            HEAD_BRANCH_NAME=$(gh pr view "$PR_NUMBER" --json headRefName --jq .headRefName)
+            if [ -n "$HEAD_BRANCH_NAME" ] && git show-ref --verify --quiet "refs/heads/$HEAD_BRANCH_NAME"; then
+                git branch -D "$HEAD_BRANCH_NAME"
             fi
         done <<< "$1"
 
@@ -230,9 +231,6 @@ while IFS= read -r LEVEL; do
         echo "⚪️ Finished creating branches and PRDs for current level."
     fi
 
-    # FIXME: Ticketmaster is outputting the requirments branch
-    # Meaning `BASE_BRANCH_NAME` below is "prd-1-requirements", which is wrong
-    # If we make it output `prd-1`, then make sure `review_pull_requests` determines head branch based on PR number
     review_pull_requests "$BRANCHES"
 
     echo "⚪️ Generating backpressure..."
