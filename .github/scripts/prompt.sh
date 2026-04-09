@@ -78,8 +78,6 @@ if [[ "$MODEL" != "opus" && "$MODEL" != "sonnet" && "$MODEL" != "haiku" ]]; then
         # Context Window Settings
         CLAUDE_CODE_AUTO_COMPACT_WINDOW="$MAX_CONTEXT_WINDOW" # Max context window tokens
         CLAUDE_AUTOCOMPACT_PCT_OVERRIDE="90" # Compaction triggers at 90% usage
-        CLAUDE_CODE_MAX_OUTPUT_TOKENS="$MAX_TOKEN_OUTPUT_PER_REPONSE" # Token reponse output limit
-        CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS="$MAX_TOKEN_OUTPUT_PER_REPONSE" # Other token reponse output limit
         # Miscellaneous settings
         API_TIMEOUT_MS="30000000" # Max out timeout for slower models (30 million ms / ~8.3 hours)
         CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY="2" # The model's max concurrent predictions setting in LM Studio
