@@ -7,11 +7,6 @@
 # Ignore the archive
 docs
 
-# Ralph scripts
-.github/scripts/backpressure.sh
-.github/scripts/ralph.sh
-.github/scripts/fork.sh
-.github/scripts/maestro.sh
-.github/scripts/prompt.sh
-.github/prompts/ralph.md
-.github/scripts/slice-plan.sh
+# Scripts and prompts the agent shouldn't read/execute itself
+.github/scripts/**
+.github/prompts/**

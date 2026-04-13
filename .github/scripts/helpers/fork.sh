@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-source .github/scripts/log.sh
+source .github/scripts/helpers/log.sh
 
 if [[ -z "${1:-}" ]]; then
   echo "Usage: $0 <new-repo-name>" >&2

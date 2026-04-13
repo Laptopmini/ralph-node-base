@@ -71,7 +71,7 @@ tailwind.config.*         → styling system
 - Root directory listing — understand top-level structure
 - `src/` or `app/` or `lib/` — main source layout
 - Any existing feature folders similar to what's being built
-- README.md or CLAUDE.md — architecture patterns and conventions
+- README.md — architecture patterns and conventions
 - Look for a test directory to understand testing conventions and identify existing test files that may conflict with the planned changes
 - Look for `playwright.config.*` and `jest.config.*` — test framework setup
 - Look for an existing router/navigation file if this feature involves new pages/routes

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source .github/scripts/log.sh
+source .github/scripts/helpers/log.sh
 
 # Check if a ticket number was provided
 if [ -z "$1" ]; then

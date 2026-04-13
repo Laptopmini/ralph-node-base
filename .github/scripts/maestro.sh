@@ -7,11 +7,11 @@
 
 set -euo pipefail
 
-source .github/scripts/log.sh
-source .github/scripts/prompt.sh
+source .github/scripts/helpers/log.sh
+source .github/scripts/agents/prompt.sh
 source .github/scripts/summarizer.sh
 
-# FIXME: Double sourcing, bad practice
+# FIXME: Ralph could benefit from a planning stage before executing in the same iteration. Leverage a thinking model, and execute with another?
 
 # Settings
 
@@ -25,13 +25,13 @@ PR_TSV_FILE=".maestro.pull-requests.tsv"
 
 # Models
 
-# STAFF_DEVELOPER_MODEL="google/gemma-4-26b-a4b" # Planning
+# STAFF_DEVELOPER_MODEL="opus" # Planning
 # SENIOR_DEVELOPER_MODEL="google/gemma-4-31b" # Backpressure
 # JUNIOR_DEVELOPER_MODEL="qwen/qwen3.5-35b-a3b" # Implementation & PR Descriptions
 
 # Variables
 
-REPO_SLUG=$(bash .github/scripts/repo-slug.sh)
+export REPO_SLUG=$(bash .github/scripts/helpers/repo-slug.sh)
 
 # Functions
 
@@ -123,12 +123,18 @@ if [ ! -s "$BLUEPRINT_FILE" ] || [ ! -s "$BLUEPRINT_LEVELS_FILE" ]; then
     fi
 fi
 
+if [[ -z "$REPO_SLUG" ]]; then
+    log ERROR "Failed to retrieve REPO_SLUG."
+    return 1
+fi
+
 # Move the log file backup to the main log file if it exists
 if [[ -s "${LOG_FILE_BACKUP:-}" ]]; then
     mv -f "$LOG_FILE_BACKUP" "$LOG_FILE"
 else
     rm -f "$LOG_FILE_BACKUP"
 fi
+
 # Capture all output to the log file
 exec > >(tee -a "$LOG_FILE")
 exec 2>&1

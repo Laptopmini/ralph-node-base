@@ -6,9 +6,6 @@
 #   source .github/scripts/summarizer.sh
 #   summarizer <head-branch> <base-branch>
 #
-# Dependencies (must be sourced by the caller before this file):
-#   - .github/scripts/log.sh
-#   - .github/scripts/prompt.sh
 
 summarizer() {
     if [[ $# -ne 2 ]]; then
@@ -92,12 +89,7 @@ ${DIFF_OUTPUT}"
     mv "${BODY_FILE}.tmp" "$BODY_FILE"
 
     # --- Step 6: Open PR ---
-    local REPO_SLUG
-    REPO_SLUG=$(bash .github/scripts/repo-slug.sh)
-    if [[ -z "$REPO_SLUG" ]]; then
-        log ERROR "Failed to retrieve REPO_SLUG."
-        return 1
-    fi
+    local REPO_SLUG="${REPO_SLUG:-$(bash .github/scripts/helpers/repo-slug.sh)}"
 
     local PR_URL
     PR_URL=$(gh pr create \

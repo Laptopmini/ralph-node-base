@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-source .github/scripts/log.sh
+source .github/scripts/helpers/log.sh
 
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <blueprint-file> <ticket-number>" >&2

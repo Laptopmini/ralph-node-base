@@ -7,8 +7,8 @@
 
 set -euo pipefail
 
-source .github/scripts/log.sh
-source .github/scripts/prompt.sh
+source .github/scripts/helpers/log.sh
+source .github/scripts/agents/prompt.sh
 
 # Settings
 

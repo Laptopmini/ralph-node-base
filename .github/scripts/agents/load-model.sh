@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source .github/scripts/log.sh
+source .github/scripts/helpers/log.sh
 
 # Check if the model argument is provided
 if [ -z "$1" ]; then

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source .github/scripts/log.sh
+source .github/scripts/helpers/log.sh
 
 # Validate that the required arguments are provided
 if [ $# -lt 2 ]; then
@@ -14,11 +14,7 @@ TICKET_NUMBER="$1"
 TICKET_TITLE="$2"
 
 # Determine current repo slug
-REPO_SLUG=$(bash .github/scripts/repo-slug.sh)
-if [ -z "$REPO_SLUG" ]; then
-    log ERROR "Failed to retrieve REPO_SLUG." >&2
-    exit 1
-fi
+REPO_SLUG="${REPO_SLUG:-$(bash .github/scripts/helpers/repo-slug.sh)}"
 
 # Define branch names based on the ticket number
 BASE_BRANCH="prd-$TICKET_NUMBER"
