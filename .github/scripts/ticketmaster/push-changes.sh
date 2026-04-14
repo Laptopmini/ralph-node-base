@@ -20,6 +20,11 @@ REPO_SLUG="${REPO_SLUG:-$(bash .github/scripts/helpers/repo-slug.sh)}"
 BASE_BRANCH="prd-$TICKET_NUMBER"
 HEAD_BRANCH="prd-$TICKET_NUMBER-requirements"
 
+if [[ ! -s PRD.md ]]; then
+    log ERROR "There is no PRD file generated. Aborting."
+    exit 1
+fi
+
 # Perform Git operations
 git add PRD.md
 git commit -m "feat($TICKET_NUMBER): Created PRD for $TICKET_TITLE"
@@ -37,7 +42,7 @@ gh pr create \
 PR_NUMBER=$(gh pr view "$HEAD_BRANCH" --repo "$REPO_SLUG" --json number --jq '.number')
 
 if [ -z "$PR_NUMBER" ]; then
-    log ERROR "Error: Could not retrieve PR number for $HEAD_BRANCH." >&2
+    log ERROR "Could not retrieve PR number for $HEAD_BRANCH." >&2
     exit 1
 fi
 

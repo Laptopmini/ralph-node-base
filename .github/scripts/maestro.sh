@@ -237,7 +237,7 @@ while IFS= read -r LEVEL; do
     for TICKET_NUM in $(echo "$LEVEL" | tr ',' '\n' | grep .); do
         TICKETMASTER_PROMPT=$(bash .github/scripts/ticketmaster/get-prompt.sh "$BLUEPRINT_FILE" "$TICKET_NUM")
         bash .github/scripts/ticketmaster/checkout.sh "$TICKET_NUM"
-        prompt "$TICKETMASTER_PROMPT" --allowedTools "Write" --model "$SENIOR_DEVELOPER_MODEL" || true
+        prompt "$TICKETMASTER_PROMPT" --allowedTools "Write" --model "$SENIOR_DEVELOPER_MODEL" --print-logs || true
         TICKET_TITLE=$(awk -v n="$TICKET_NUM" '$0 ~ "^#### Ticket " n ":" { sub(/^#### Ticket [0-9]+: */, ""); print; exit }' "$BLUEPRINT_FILE")
         bash .github/scripts/ticketmaster/push-changes.sh "$TICKET_NUM" "$TICKET_TITLE"
         echo "$TICKETMASTER_PROMPT" > "$FOLDER_NAME/ticketmaster-$TICKET_NUM.md"
