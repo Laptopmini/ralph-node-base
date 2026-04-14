@@ -33,11 +33,24 @@ if [ ! -s "$TEMPLATE_FILE" ]; then
     exit 1
 fi
 
+# Strip trailing blank lines and "---" separators from extracted blueprint sections.
+# This prevents duplicating the "---" that the template already supplies after each placeholder.
+strip_trailing_separator() {
+    awk '
+        { lines[NR] = $0 }
+        END {
+            end = NR
+            while (end > 0 && (lines[end] ~ /^[[:space:]]*$/ || lines[end] ~ /^---/)) end--
+            for (i = 1; i <= end; i++) print lines[i]
+        }
+    '
+}
+
 # Extract plan-level context (everything before the first #### Ticket heading)
 PLAN_CONTEXT=$(awk '
     /^#### Ticket [0-9]+/ { exit }
     { print }
-' "$BLUEPRINT")
+' "$BLUEPRINT" | strip_trailing_separator)
 
 # Extract the specific ticket section (from its heading to the next heading or EOF)
 # Also captures the title from the heading line.
@@ -61,7 +74,7 @@ TICKET_SECTION=$(awk -v num="$TICKET_NUM" '
         if (index(lower, "**depends_on:**") == 1) next
         print
     }
-' "$BLUEPRINT")
+' "$BLUEPRINT" | strip_trailing_separator)
 
 # Extract the ticket title from the heading line
 TICKET_TITLE=$(awk -v num="$TICKET_NUM" '
@@ -96,6 +109,11 @@ RENDERED=$(awk '
         ticket_sec = ENVIRON["TICKET_SECTION"]
         ticket_num = ENVIRON["TICKET_NUM"]
         ticket_title = ENVIRON["TICKET_TITLE"]
+        # Escape \ and & in replacement strings so awk gsub treats them literally.
+        # Order matters: escape \ first, then &.
+        gsub(/\\/, "\\\\", plan_ctx);   gsub(/&/, "\\&", plan_ctx)
+        gsub(/\\/, "\\\\", ticket_sec);  gsub(/&/, "\\&", ticket_sec)
+        gsub(/\\/, "\\\\", ticket_title); gsub(/&/, "\\&", ticket_title)
     }
     {
         line = $0
