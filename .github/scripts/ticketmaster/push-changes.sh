@@ -49,5 +49,4 @@ fi
 # Append the mapping to the TSV file (Tab Separated)
 printf '%s\t%s\n' "$BASE_BRANCH" "$PR_NUMBER" >> .maestro.pull-requests.tsv
 
-echo "Your generated PRD for ticket $TICKET_NUMBER was succefully pushed! You can proceed to the next ticket, if any."
 log SUCCESS "Branches, PRD and PR created for ticket $TICKET_NUMBER!"
