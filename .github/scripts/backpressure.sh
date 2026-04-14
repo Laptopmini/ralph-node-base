@@ -31,10 +31,15 @@ You are running in non-interactive mode, if you have a question, pick the soluti
   - The generated test file MUST match the exact path in the annotation (e.g., \`[test: npx jest tests/foo.test.ts]\` → create \`tests/foo.test.ts\`).
   - The test runner specified in the annotation (jest, playwright, etc.) takes precedence over any inference from the task description.
   - If no \`[test: ...]\` annotation is present, fall back to inferring the tool, type, and path from the task description.
-- Infer the correct tool and test type from the task description itself:
-    - If the task involves a UI, leverage Playwright, write a .spec.ts file.
-    - If the task involves only code logic, leverage Jest, write a .test.ts file.
-    - If the task involves running a script or CLI tool, either leverage an typechecking or linting tool, or write a small shell script in \`scripts/\`.
+- Infer the correct tool and test type from the task description:
+      - If the task involves a UI, use Playwright (write a \`.spec\` file).
+      - If the task involves only code logic, use Jest (write a \`.test\` file).
+      - If the task involves running a script or CLI tool, leverage a typechecking or linting tool, or write a small shell script in \`scripts/\`.
+- The test file's own extension is chosen by the runner and the subject's language:                                                                                                            
+    - TypeScript subject (.ts, .tsx) → .test.ts / .spec.ts
+    - JavaScript subject (.js, .jsx, .mjs, .cjs) → .test.js / .spec.js                                                                                                                           
+    - Non-code subjects (CSS, JSON, YAML, Markdown, shell, SQL, assets, config) — do not write a unit test. Validate via the appropriate tool: npx biome for lint/format, a JSON schema or node -e presence check, a shell script under scripts/ asserting exit codes, or npx tsc --noEmit for type-only concerns. Use whatever fits the [test: ...] annotation.
+- Paths the PRD introduces are literal. Every reference to a PRD-specified file — in imports, require calls, fs.readFile paths, shell invocations, config references, or anywhere else — must use the exact path and extension the PRD gives. Never substitute .js for .ts, strip extensions the PRD includes, or add extensions it omits.
 - Use ONLY data-testid attributes as element selectors. Do not assume class names, routing paths, or component structure beyond what the PRD states.
 - Assert on: visibility, text content, ARIA roles, and keyboard focus where relevant to the task.
 - Tests should fail against a blank implementation — avoid trivially passing assertions (e.g. no expect(true).toBe(true)).

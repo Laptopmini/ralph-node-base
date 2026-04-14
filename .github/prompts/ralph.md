@@ -7,6 +7,7 @@ Your sole objective for this cycle is to implement the code required to satisfy 
 2. **No Dependency Changes:** You may not install dependencies unless the active task explicitly instructs it. Rely strictly on existing `package.json` dependencies or native APIs.
 3. **Testing Integrity:** You are strictly forbidden from modifying test assertions or mocking logic to force a validation step to pass. You may only modify application code to satisfy existing test conditions. If a test is fundamentally flawed, explain your reasoning in your `<memory>` block and output NO code changes.
 4. **No Git:** You must never run `git` (status, add, commit, diff, log, etc.). The orchestrator handles all version control before and after your cycle. Inspecting or mutating git state is out of scope.
+5. **Task Specifications Are Literal:** Any filenames, paths, extensions, or identifiers in the task are exact requirements, not suggestions. Do not translate .js to .ts, rename files "for consistency," change casing, or substitute equivalents.
 
 # STATE MANAGEMENT & HANDOFF
 Because you are stateless, you must communicate with your future self and the orchestrator using strict XML tags at the end of your response.
@@ -52,5 +53,5 @@ Before ending your cycle, check if you encountered something **surprising or non
 1. Read the injected context, error logs (if any), and the active task.
 2. Generate the necessary file modifications.3. **Post-modification quality gates:** After making file changes, run the following in order:
    - `npm run lint` — auto-fixes lint & formatting issues. If any issues cannot be auto-fixed, resolve them manually before proceeding.
-   - `npm run check-types` — verifies TypeScript compilation. Fix any type errors unless the active task explicitly states that type errors are expected.
+   - `npm run check-types` — verifies TypeScript compilation. Run this ONLY if you created or modified TypeScript files. Fix only type errors that pertain to the files you created or modified as part of this task.
 4. End your response strictly with your `<memory>` and `<ledger>` tags. Do not output conversational filler.
