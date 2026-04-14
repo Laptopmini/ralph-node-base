@@ -16,9 +16,18 @@
       "Read(*.key)",
       "Read(*.cert)",
       "Bash(rm -rf *)",
+      "Write(docs/*)",
+      "Edit(docs/*)",
       "Read(docs/*)",
       "Glob(docs/*)",
       "Grep(docs/*)",
+      "Bash(* docs/**)",
+      "Write(PRD.md)",
+      "Edit(PRD.md)",
+      "Read(PRD.md)",
+      "Glob(PRD.md)",
+      "Grep(PRD.md)",
+      "Bash(* PRD.md*)",
       "Bash(git reset *)",
       "Bash(git rebase *)",
       "Bash(git stash *)",
@@ -36,7 +45,7 @@
       "Read(.maestro.claude.tmp)",
       "Write(.maestro.claude.tmp)",
       "Edit(.maestro.claude.tmp)",
-      "Bash(* .maestro.claude.tmp)"
+      "Bash(* .maestro.claude.tmp*)"
     ]
   }
 }

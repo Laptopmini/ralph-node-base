@@ -7,6 +7,9 @@
 # Ignore the archive
 docs
 
+# Ignore current PRD (fed via prompt)
+PRD.md
+
 # Scripts and prompts the agent shouldn't read/execute itself
 .github/scripts/**
 .github/prompts/**
