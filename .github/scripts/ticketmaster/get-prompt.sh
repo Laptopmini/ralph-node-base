@@ -104,23 +104,28 @@ export TICKET_NUM
 export TICKET_TITLE
 
 RENDERED=$(awk '
+    # replace_literal avoids gsub special-char interpretation (& and \) in the
+    # replacement value, which breaks when blueprint text contains & or \.
+    function replace_literal(str, pat, rep,    idx, result) {
+        result = ""
+        while ((idx = index(str, pat)) > 0) {
+            result = result substr(str, 1, idx - 1) rep
+            str = substr(str, idx + length(pat))
+        }
+        return result str
+    }
     BEGIN {
-        plan_ctx = ENVIRON["PLAN_CONTEXT"]
-        ticket_sec = ENVIRON["TICKET_SECTION"]
-        ticket_num = ENVIRON["TICKET_NUM"]
+        plan_ctx    = ENVIRON["PLAN_CONTEXT"]
+        ticket_sec  = ENVIRON["TICKET_SECTION"]
+        ticket_num  = ENVIRON["TICKET_NUM"]
         ticket_title = ENVIRON["TICKET_TITLE"]
-        # Escape \ and & in replacement strings so awk gsub treats them literally.
-        # Order matters: escape \ first, then &.
-        gsub(/\\/, "\\\\", plan_ctx);   gsub(/&/, "\\&", plan_ctx)
-        gsub(/\\/, "\\\\", ticket_sec);  gsub(/&/, "\\&", ticket_sec)
-        gsub(/\\/, "\\\\", ticket_title); gsub(/&/, "\\&", ticket_title)
     }
     {
         line = $0
-        gsub(/\{\{PLAN_CONTEXT\}\}/, plan_ctx, line)
-        gsub(/\{\{TICKET_SECTION\}\}/, ticket_sec, line)
-        gsub(/\{\{TICKET_NUMBER\}\}/, ticket_num, line)
-        gsub(/\{\{TICKET_TITLE\}\}/, ticket_title, line)
+        line = replace_literal(line, "{{PLAN_CONTEXT}}",   plan_ctx)
+        line = replace_literal(line, "{{TICKET_SECTION}}", ticket_sec)
+        line = replace_literal(line, "{{TICKET_NUMBER}}",  ticket_num)
+        line = replace_literal(line, "{{TICKET_TITLE}}",   ticket_title)
         print line
     }
 ' "$TEMPLATE_FILE")
