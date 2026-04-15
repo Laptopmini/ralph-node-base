@@ -47,25 +47,25 @@ prompt() {
         
         case "$arg" in
             --model)
-                if (( i + 1 < ${#ARGS[@] })) && [[ "${ARGS[$((i+1))]}" != --* ]]; then
+                if (( i + 1 < ${#ARGS[@]})) && [[ "${ARGS[$((i+1))]}" != --* ]]; then
                     MODEL="${ARGS[$((i+1))]}"
                     ((i+=2)) || true
                     continue
                 fi ;;
             --cli)
-                if (( i + 1 < ${#ARGS[@] })) && [[ "${ARGS[$((i+1))]}" != --* ]]; then
+                if (( i + 1 < ${#ARGS[@]})) && [[ "${ARGS[$((i+1))]}" != --* ]]; then
                     CLI="${ARGS[$((i+1))]}"
                     ((i+=2)) || true
                     continue
                 fi ;;
             --allowedTools)
-                if (( i + 1 < ${#ARGS[@] })) && [[ "${ARGS[$((i+1))]}" != --* ]]; then
+                if (( i + 1 < ${#ARGS[@]})) && [[ "${ARGS[$((i+1))]}" != --* ]]; then
                     ALLOWED="${ARGS[$((i+1))]}"
                     ((i+=2)) || true
                     continue
                 fi ;;
             --disallowedTools)
-                if (( i + 1 < ${#ARGS[@] })) && [[ "${ARGS[$((i+1))]}" != --* ]]; then
+                if (( i + 1 < ${#ARGS[@]})) && [[ "${ARGS[$((i+1))]}" != --* ]]; then
                     DISALLOWED="${ARGS[$((i+1))]}"
                     ((i+=2)) || true
                     continue

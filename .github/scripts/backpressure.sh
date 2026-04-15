@@ -39,7 +39,7 @@ You are running in non-interactive mode, if you have a question, pick the soluti
     - TypeScript subject (.ts, .tsx) → .test.ts / .spec.ts
     - JavaScript subject (.js, .jsx, .mjs, .cjs) → .test.js / .spec.js                                                                                                                           
     - Non-code subjects (CSS, JSON, YAML, Markdown, shell, SQL, assets, config) — do not write a unit test. Validate via the appropriate tool: npx biome for lint/format, a JSON schema or node -e presence check, a shell script under scripts/ asserting exit codes, or npx tsc --noEmit for type-only concerns. Use whatever fits the [test: ...] annotation.
-- Paths the PRD introduces are literal. Every reference to a PRD-specified file — in imports, require calls, fs.readFile paths, shell invocations, config references, or anywhere else — must use the exact path and extension the PRD gives. Never substitute .js for .ts, strip extensions the PRD includes, or add extensions it omits.
+- Use imports without file extensions (e.g., import { foo } from './bar' not './bar.js') when possible. Do not use extensions if the import can be resolved without them.
 - Use ONLY data-testid attributes as element selectors. Do not assume class names, routing paths, or component structure beyond what the PRD states.
 - Assert on: visibility, text content, ARIA roles, and keyboard focus where relevant to the task.
 - Tests should fail against a blank implementation — avoid trivially passing assertions (e.g. no expect(true).toBe(true)).

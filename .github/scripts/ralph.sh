@@ -13,7 +13,8 @@ source .github/scripts/agents/prompt.sh
 # Settings
 
 LOCK_FILE=".ralph.lock"
-MAX_LOOPS=10
+MAX_LOOPS=20
+TYPE_CHECK_CMD="npm run check-types"
 
 # Main
 
@@ -24,6 +25,7 @@ fi
 
 touch "$LOCK_FILE"
 trap "rm -f $LOCK_FILE" EXIT
+trap 'exit 130' INT HUP TERM
 
 if [[ -z "${1:-}" ]]; then
     log ERROR "ARCHIVE_FOLDER argument is required."
@@ -42,6 +44,8 @@ log WARN "Starting Ralph Loop for at most $MAX_LOOPS iterations..."
 
 ERROR_FEEDBACK=""
 LOOP_COUNTER=0
+PREVIOUS_TASK_VALIDATION=()
+declare -A PREVIOUS_TASK_VALIDATION_LOOKUP
 
 while true; do
     log INFO "------------------------- Iteration $((LOOP_COUNTER + 1))/$MAX_LOOPS -------------------------"
@@ -124,7 +128,7 @@ $PRD_CONTENT
     set +e
     OUTPUT=$(prompt "$AGENT_PROMPT" \
         --allowedTools "Read,Edit,Write,Glob,Grep,Bash" \
-        --disallowedTools "Bash(git:*),Bash(npm test*),Bash(npm run test*),Bash(npm run check-types*),Bash(npx jest*),Bash(npx playwright*),Bash(npx tsc*)" \
+        --disallowedTools "Bash(git:*),Bash(npm test*),Bash(npm run test*),Bash($TYPE_CHECK_CMD*),Bash(npx jest*),Bash(npx playwright*),Bash(npx tsc*)" \
         --model "${JUNIOR_DEVELOPER_MODEL:-sonnet}")
     PROMPT_EXIT=$?
     set -e
@@ -174,15 +178,22 @@ $PRD_CONTENT
         TASK_VALIDATION+=("npm run lint")
     fi
 
-    # If this is the last task, include a final typecheck
-    if [ "$UNCHECKED_COUNT" -eq 1 ]; then
-        TASK_VALIDATION+=("npm run check-types")
-    fi
-
-    # Add the targeted test command as the last item
+    # Add the targeted test command
     TASK_VALIDATION+=("$TARGETED_TEST")
 
-    for TEST_COMMAND in "${TASK_VALIDATION[@]}"; do
+    # If this is the last task, include a final typecheck
+    if [ "$UNCHECKED_COUNT" -eq 1 ]; then
+        TASK_VALIDATION+=("$TYPE_CHECK_CMD")
+        PREVIOUS_TASK_VALIDATION_LOOKUP[$TYPE_CHECK_CMD]=1
+    fi
+
+    # Make sure previous tasks are still passing
+    COMBINED_VALIDATION=("${TASK_VALIDATION[@]}")
+    if [[ ${#PREVIOUS_TASK_VALIDATION[@]} -gt 0 ]]; then
+        COMBINED_VALIDATION+=("${PREVIOUS_TASK_VALIDATION[@]}")
+    fi
+
+    for TEST_COMMAND in "${COMBINED_VALIDATION[@]}"; do
         log INFO "Running Validation: $TEST_COMMAND"
         set +e
         TEST_OUTPUT=$(eval "$TEST_COMMAND" 2>&1)
@@ -197,6 +208,9 @@ $PRD_CONTENT
     if [ $TEST_EXIT_CODE -eq 0 ]; then
         log SUCCESS "Task passed! Continuing..."
         CURRENT_TASK_LABEL="Iteration $((LOOP_COUNTER + 1))"
+
+        PREVIOUS_TASK_VALIDATION+=("$TARGETED_TEST")
+        PREVIOUS_TASK_VALIDATION_LOOKUP[$TARGETED_TEST]=1
         
         if [ -n "$PROPOSED_MEMORY" ]; then
             echo "$PROPOSED_MEMORY" > MEMORY.md
@@ -227,9 +241,15 @@ $PRD_CONTENT
         log ERROR "Validation failed. The agent must try again."
         log INFO "Test Output:\n$TEST_COMMAND\n$TEST_OUTPUT"
 
+        ERROR_FEEDBACK_HEADER="YOUR LAST ATTEMPT FAILED!
+        You tried to complete the task, but the validation failed."
+        if [[ ${PREVIOUS_TASK_VALIDATION_LOOKUP[$TEST_COMMAND]} ]]; then
+            ERROR_FEEDBACK_HEADER="YOUR LAST ATTEMPT CAUSED A REGRESSION!
+        You successfully implemented the task, but a previously working validation is now failing."
+        fi
+
         ERROR_FEEDBACK="
-        YOUR LAST ATTEMPT FAILED!
-        You tried to complete the task, but the validation failed.
+        $ERROR_FEEDBACK_HEADER
         
         Test Command: $TEST_COMMAND
         Exit Code: $TEST_EXIT_CODE
