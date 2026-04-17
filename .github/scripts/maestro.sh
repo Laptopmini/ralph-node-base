@@ -10,6 +10,7 @@ set -euo pipefail
 source .github/scripts/helpers/log.sh
 source .github/scripts/agents/prompt.sh
 source .github/scripts/summarizer.sh
+source .github/scripts/helpers/notify.sh
 
 # FIXME: Ralph could benefit from a planning stage before executing in the same iteration. Leverage a thinking model, and execute with another?
 
@@ -20,7 +21,6 @@ LOG_FILE="/tmp/maestro.log"
 LOG_FILE_BACKUP="maestro.log"
 BLUEPRINT_FILE=".maestro.blueprint.md"
 BLUEPRINT_LEVELS_FILE=".maestro.blueprint.levels"
-SLICE_FILE=".maestro.level.md"
 PR_TSV_FILE=".maestro.pull-requests.tsv"
 PR_SUMMARY_FILE=".maestro.summary.md"
 
@@ -55,6 +55,7 @@ export PR_SUMMARY_FILE
 ask_continue() { read -n 1 -s -r -p "$*"$'\n' < /dev/tty; }
 
 view_pull_requests() {
+    notify "Maestro is asking you to review the Pull Request(s)."
     ask_continue "💬 Are you ready to review the Pull Request(s)? Press any key to open in browser..."
     local url
     url=$(gh repo view "$REPO_SLUG" --json url -q ".url + \"/pulls\"")
@@ -117,7 +118,9 @@ cleanup() {
     local exit_code=$?
     rm -f "$LOCK_FILE" "$LOG_FILE" "$PR_TSV_FILE" "$PR_SUMMARY_FILE"
     if [[ $exit_code -eq 0 ]]; then
-        rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE" "$SLICE_FILE"
+        rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE"
+    else
+        notify "Maestro encountered an error. Please review the logs for more information."
     fi
 }
 
@@ -191,6 +194,10 @@ while $MISSING_BLUEPRINT; do
         code "$BLUEPRINT_FILE"
     else
         log INFO "Using implementation plan from $BLUEPRINT_FILE."
+    fi
+
+    if ! $REUSING_EXISTING_PLAN; then
+        notify "Maestro is ready to execute the implementation plan."
     fi
 
     # Capture the log file in case the user quits the program here to execute later

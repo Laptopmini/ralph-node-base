@@ -30,19 +30,19 @@ checkout_branch() {
     local branch_name="$1"
     
     if has_local_branch "$branch_name"; then
-        git checkout "$branch_name" || { echo "Failed to checkout $branch_name (local)"; exit 1; }
-        git pull origin "$branch_name" || { echo "Failed to pull from origin/$branch_name"; exit 1; }
+        git checkout "$branch_name" || { log ERROR "Failed to checkout $branch_name (local)"; exit 1; }
+        git pull origin "$branch_name" || { log ERROR "Failed to pull from origin/$branch_name"; exit 1; }
     elif has_remote_branch "$branch_name"; then
-        git checkout -b "$branch_name" origin/"$branch_name" || { echo "Failed to checkout $branch_name (remote)"; exit 1; }
+        git checkout -b "$branch_name" origin/"$branch_name" || { log ERROR "Failed to checkout $branch_name (remote)"; exit 1; }
     else
-        git checkout -b "$branch_name" || { echo "Failed to checkout $branch_name (new branch)"; exit 1; }
-        git push -u origin "$branch_name" || { echo "Failed to push origin/$branch_name"; exit 1; }
+        git checkout -b "$branch_name" || { log ERROR "Failed to checkout $branch_name (new branch)"; exit 1; }
+        git push -u origin "$branch_name" || { log ERROR "Failed to push origin/$branch_name"; exit 1; }
         log INFO "Created branch $branch_name"
     fi
 }
 
 # Checkout main
-git checkout main || { echo "Failed to checkout main"; exit 1; }
+git checkout main || { log ERROR "Failed to checkout main"; exit 1; }
 
 # Fetch all branches and prune deleted ones
 git fetch origin --prune || true
