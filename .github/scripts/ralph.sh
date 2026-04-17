@@ -193,11 +193,15 @@ $PRD_CONTENT
         COMBINED_VALIDATION+=("$TYPE_CHECK_CMD")
         PREVIOUS_TASK_VALIDATION_LOOKUP[$TYPE_CHECK_CMD]=1
 
-        COMBINED_VALIDATION+=("$UNIT_TEST_CMD")
-        PREVIOUS_TASK_VALIDATION_LOOKUP[$UNIT_TEST_CMD]=1
+        if ls -A tests/unit | grep -q .; then
+            COMBINED_VALIDATION+=("$UNIT_TEST_CMD")
+            PREVIOUS_TASK_VALIDATION_LOOKUP[$UNIT_TEST_CMD]=1
+        fi
 
-        COMBINED_VALIDATION+=("$E2E_TEST_CMD")
-        PREVIOUS_TASK_VALIDATION_LOOKUP[$E2E_TEST_CMD]=1
+        if ls -A tests/e2e | grep -q .; then
+            COMBINED_VALIDATION+=("$E2E_TEST_CMD")
+            PREVIOUS_TASK_VALIDATION_LOOKUP[$E2E_TEST_CMD]=1
+        fi
     elif [[ ${#PREVIOUS_TASK_VALIDATION[@]} -gt 0 ]]; then
         # Make sure previous tasks are still passing
         COMBINED_VALIDATION+=("${PREVIOUS_TASK_VALIDATION[@]}")
