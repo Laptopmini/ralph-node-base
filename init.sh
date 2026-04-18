@@ -21,6 +21,7 @@ npm pkg set scripts.test="jest && playwright test" \
             scripts.ralph="bash .github/scripts/ralph.sh" \
             scripts.lint="biome check --write ." \
             scripts.check-types="tsc --noEmit" \
+            types="module" \
             engines.node=">=24.14.1" \
             engines.npm=">=11.11.0" && \
 npm install -D @playwright/test jest @types/jest @biomejs/biome@2.4.8 typescript ts-node @swc/jest @swc/core

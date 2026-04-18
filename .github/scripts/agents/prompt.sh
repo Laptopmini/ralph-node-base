@@ -129,8 +129,6 @@ prompt() {
             local OPENCODE_CUSTOM_PROVIDER="lmstudio"
             # FIXME: If MiniMax-M2.7, use `minimax` provider
 
-            # FIXME: OpenCode does not support permission "Agent" which is used by Blueprint
-
             LOCAL_ENV=(
                 OPENCODE_PERMISSION="$(get_opencode_permissions "$ALLOWED" "$DISALLOWED")" # Inlined json permissions config
                 OPENCODE_CUSTOM_PROVIDER="$OPENCODE_CUSTOM_PROVIDER"

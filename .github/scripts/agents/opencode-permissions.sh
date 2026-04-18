@@ -14,6 +14,10 @@ get_opencode_permissions() {
         return 0
     fi
 
+    # 'Agent' permission is called `task` in OpenCode
+    ALLOWED_INPUT="${ALLOWED_INPUT//Agent/task}"
+    DISALLOWED_INPUT="${DISALLOWED_INPUT//Agent/task}"
+
     local NEW_PERMISSIONS=$(jq -Rn \
         --arg allowed "$ALLOWED_INPUT" \
         --arg disallowed "$DISALLOWED_INPUT" '
