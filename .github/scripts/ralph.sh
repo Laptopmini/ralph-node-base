@@ -1,92 +1,77 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # ==============================================================================
-# RALPH LOOP: MULTI-ENGINE WITH TARGETED BACKPRESSURE
-# Usage: ./ralph.sh [MAX_LOOPS] [--engine claude|opencode]
+# RALPH LOOP: The test-gated, autonomous AI development cycle
+# Usage: ./ralph.sh <ARCHIVE_FOLDER>
 # ==============================================================================
 
 set -euo pipefail
 
+source .github/scripts/helpers/log.sh
+source .github/scripts/agents/prompt.sh
+
 # Settings
-ARCHIVE_FOLDER=".prds"
+
 LOCK_FILE=".ralph.lock"
-LOG_FILE=".ralph.log"
+MAX_LOOPS=10 # This is the maximum number of iterations per task
+TYPE_CHECK_CMD="npm run check-types"
+UNIT_TEST_CMD="npx jest --silent --no-verbose"
+E2E_TEST_CMD="npx playwright test --reporter=line"
 
-# Options
-ENGINE="claude"
-MAX_LOOPS=10
-
-# Variables
-LOOP_COUNTER=0
+# Main
 
 if [ -e "$LOCK_FILE" ]; then
-    echo "❌ Error: Ralph Loop is already running! Exiting..."
+    log ERROR "Ralph Loop is already running! Exiting..."
     exit 1
 fi
 
 touch "$LOCK_FILE"
-> "$LOG_FILE"  # Truncate the log file
 trap "rm -f $LOCK_FILE" EXIT
+trap 'exit 130' INT HUP TERM
 
-if [[ -n "${1:-}" && "${1:-}" != --* ]]; then
-    MAX_LOOPS="$1"
-    shift
-fi
-
-while [[ "$#" -gt 0 ]]; do
-  case $1 in
-    --engine)
-      ENGINE="$2"
-      if [[ "$ENGINE" != "claude" && "$ENGINE" != "opencode" ]]; then
-        echo "❌ Error: Unsupported engine '$ENGINE'. Use '$0 --engine claude' or '$0 --engine opencode'."
-        exit 1
-      fi
-      shift 2
-      ;;
-    *)
-      echo "❌ Error: Unknown argument '$1'."
-      echo "Usage: $0 [MAX_LOOPS] [--engine claude|opencode]"
-      exit 1
-      ;;
-  esac
-done
-
-if ! command -v $ENGINE &> /dev/null; then
-    echo "❌ Error: $ENGINE CLI is not installed."
+if [[ -z "${1:-}" ]]; then
+    log ERROR "ARCHIVE_FOLDER argument is required."
+    log ERROR "Usage: $0 <ARCHIVE_FOLDER>"
     exit 1
 fi
+ARCHIVE_FOLDER="$1"
+shift
 
 if [ ! -f PRD.md ]; then
-    echo "❌ Error: PRD.md not found."
+    log ERROR "PRD.md not found."
     exit 1
 fi
 
-# Capture all output to the log file
-exec > >(tee -a "$LOG_FILE")
-exec 2>&1
-
-echo "🟢 Starting Ralph Loop for at most $MAX_LOOPS iterations, using $ENGINE..."
+log WARN "Starting Ralph Loop for at most $MAX_LOOPS iterations..."
 
 ERROR_FEEDBACK=""
+LOOP_COUNTER=0
+TOTAL_LOOPS=0
+PREVIOUS_TASK_VALIDATION=()
+declare -A PREVIOUS_TASK_VALIDATION_LOOKUP
 
 while true; do
-    echo "------------------------- Iteration $((LOOP_COUNTER + 1))/$MAX_LOOPS -------------------------"
-    echo "Parsing Active Task & Target Test..."
+    log INFO "Parsing Active Task & Target Test..."
 
     CURRENT_TASK=$(grep -m 1 "^\s*- \[ \]" PRD.md || true)
 
     if [ -z "$CURRENT_TASK" ]; then
-        echo "🎉 No incomplete tasks found in PRD.md. Cleaning up..."
+        log SUCCESS "🎉 No incomplete tasks found in PRD.md. Cleaning up..."
 
         rm -rf MEMORY.md
 
-        COUNTER=0
-        while [[ -f "$ARCHIVE_FOLDER/PRD.$COUNTER.md" ]]; do
+        PRD_TITLE=$(head -1 PRD.md | sed -E 's/^#+ (PRD: )?//')
+        PRD_FILENAME=$(echo "$PRD_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed -E 's/-+/-/g' | sed -E 's/^-|-$//g')
+
+        ARCHIVE_PATH="$ARCHIVE_FOLDER/PRD.$PRD_FILENAME.md"
+
+        COUNTER=1
+        while [[ -f $ARCHIVE_PATH ]]; do
+            ARCHIVE_PATH="$ARCHIVE_FOLDER/PRD.$PRD_FILENAME.$COUNTER.md"
             ((COUNTER++))
         done
 
-        ARCHIVE_PATH="$ARCHIVE_FOLDER/PRD.$COUNTER.md"
-        echo "Archiving PRD to $ARCHIVE_PATH..."
+        log INFO "Archiving PRD to $ARCHIVE_PATH..."
         mkdir -p "$ARCHIVE_FOLDER"
         mv PRD.md "$ARCHIVE_PATH"
 
@@ -96,30 +81,36 @@ while true; do
     fi
 
     if [[ "$LOOP_COUNTER" -ge "$MAX_LOOPS" ]]; then
-        echo "⚠️ Max loops reached!"
-        break
+        log ERROR "⚠️ Max loops reached for task:
+    $CURRENT_TASK
+    Aborting..."
+        exit 1
     fi
 
     LOOP_COUNTER=$((LOOP_COUNTER+1))
 
-    echo "Active Task:
+    log INFO "------------------------- Iteration $((LOOP_COUNTER))/$MAX_LOOPS (Total: $((LOOP_COUNTER + $TOTAL_LOOPS))) -------------------------"
+    log INFO "Active Task:
     $CURRENT_TASK"
 
     TARGETED_TEST=$(echo "$CURRENT_TASK" | sed -n 's/.*`\[test: \(.*\)\]`.*/\1/p')
 
     if [ -z "$TARGETED_TEST" ]; then
-        echo "No targeted test found for this task. Defaulting to full suite."
+        log WARN "No targeted test found for this task. Defaulting to full suite."
         TARGETED_TEST="npm test"
     else
-        echo "Targeted Backpressure Found: $TARGETED_TEST"
+        log INFO "Targeted Backpressure Found: $TARGETED_TEST"
     fi
 
-    echo "Assembling Context Window..."
+    log INFO "Assembling Context Window..."
 
     RALPH_PROMPT=$(cat .github/prompts/ralph.md 2>/dev/null || echo "You are an autonomous developer.")
     LEDGER_CONTEXT=$(tail -n 5 .agent-ledger.jsonl 2>/dev/null || echo "No history.")
     MEMORY_CONTEXT=$(cat MEMORY.md 2>/dev/null || echo "Scratchpad empty.")
-    PRD_CONTENT=$(cat PRD.md)
+    PRD_CONTENT=$(awk -v task="$CURRENT_TASK" '
+        { print }
+        $0 == task { exit }
+    ' PRD.md)
 
     AGENT_PROMPT="
 $RALPH_PROMPT${ERROR_FEEDBACK:+$'\n'}$ERROR_FEEDBACK
@@ -132,47 +123,43 @@ $LEDGER_CONTEXT
 
 $MEMORY_CONTEXT
 
---- YOUR CURRENT TASK (PRD.md) ---
+--- YOUR CURRENT TASK ---
 
 $PRD_CONTENT
 "
 
     ERROR_FEEDBACK=""
 
-    echo "🟡 Handing control to $ENGINE..."
-    OUTPUT=""
-    ENGINE_EXIT=0
-    if [[ "$ENGINE" == "claude" ]]; then
-        set +e
-        OUTPUT=$(claude -p "$AGENT_PROMPT" --allowedTools "Read,Edit,Write,Glob,Grep,Bash")
-        ENGINE_EXIT=$?
-        set -e
+    set +e
+    OUTPUT=$(prompt "$AGENT_PROMPT" \
+        --allowedTools "Read,Edit,Write,Glob,Grep,Bash" \
+        --disallowedTools "Bash(git:*),Bash(npm test*),Bash(npm run test*),Bash($TYPE_CHECK_CMD*),Bash(npx jest*),Bash(npx playwright*),Bash(npx tsc*)" \
+        --model "${JUNIOR_DEVELOPER_MODEL:-sonnet}")
+    PROMPT_EXIT=$?
+    set -e
 
-        if [[ "$OUTPUT" == *"rate_limit_error"* ]] || [[ "$OUTPUT" == *"insufficient_quota"* ]] || [[ "$OUTPUT" == *"credit balance"* ]]; then
-            echo "🟠 Claude rate limit exceeded. Waiting for 1 hour..."
-            sleep 3600 # 1 hour
-            LOOP_COUNTER=$((LOOP_COUNTER-1))
+    case $PROMPT_EXIT in
+        0)
+            ;;  # Prompt succeeded
+        2)
+            log WARN "Rate limit hit. Waiting 15 minutes..."
+            sleep 900
+            LOOP_COUNTER=$((LOOP_COUNTER - 1))
             continue
-        fi
-    else
-        set +e
-        OUTPUT=$(opencode run "$AGENT_PROMPT")
-        ENGINE_EXIT=$?
-        set -e
-    fi
+            ;;
+        *)
+            log WARN "Engine failed (exit $PROMPT_EXIT). Retrying in 5s..."
+            sleep 5
+            continue
+            ;;
+    esac
 
-    if [[ $ENGINE_EXIT -ne 0 ]]; then
-        echo "🟠 Engine exited with code $ENGINE_EXIT. Retrying..."
-        sleep 5
-        continue
-    fi
-
-    echo "Agent finished. Extracting proposed state updates..."
+    log INFO "Agent finished. Extracting proposed state updates..."
     PROPOSED_MEMORY=$(echo "$OUTPUT" | awk '/<memory>/{flag=1; next} /<\/memory>/{flag=0} flag')
     PROPOSED_LEDGER=$(echo "$OUTPUT" | awk '/<ledger>/{flag=1; next} /<\/ledger>/{flag=0} flag')
 
-    echo "Running Validation: $TARGETED_TEST"
-    ALLOWED_PREFIXES=("npm test" "npx jest" "npx playwright" "npx tsc" "npx biome")
+    log INFO "Determining validation commands..."
+    ALLOWED_PREFIXES=("npm test" "npx jest" "npx playwright" "npx tsc" "npx biome" "bash scripts/")
     ALLOWED=false
     for prefix in "${ALLOWED_PREFIXES[@]}"; do
         if [[ "$TARGETED_TEST" == "$prefix"* ]]; then
@@ -182,29 +169,78 @@ $PRD_CONTENT
     done
 
     if [[ "$ALLOWED" != "true" ]]; then
-        echo "❌ Blocked test command: '$TARGETED_TEST'"
-        echo "   Only commands starting with: ${ALLOWED_PREFIXES[*]} are permitted."
-        echo "   Fix the [test: ...] annotation in PRD.md and re-run."
+        log ERROR "Blocked test command: '$TARGETED_TEST'"
+        log ERROR "   Only commands starting with: ${ALLOWED_PREFIXES[*]} are permitted."
+        log ERROR "   Fix the [test: ...] annotation in PRD.md and re-run."
         exit 1
     fi
-    set +e
-    TEST_OUTPUT=$(eval "$TARGETED_TEST" 2>&1)
-    TEST_EXIT_CODE=$?
-    set -e
+
+    TASK_VALIDATION=()
+    UNCHECKED_COUNT=$(grep -c "^\s*- \[ \]" PRD.md || true)
+
+    # Make sure to lint unless biome is already being used
+    if [[ "$TARGETED_TEST" != "npx biome"* ]]; then
+        TASK_VALIDATION+=("npm run lint")
+    fi
+
+    # Add the targeted test command
+    TASK_VALIDATION+=("$TARGETED_TEST")
+
+    # Combine the required task validations into a single array
+    COMBINED_VALIDATION=("${TASK_VALIDATION[@]}")
+    if [ "$UNCHECKED_COUNT" -eq 1 ]; then
+        # If this is the last task, include a final typecheck & full test suite
+        COMBINED_VALIDATION+=("$TYPE_CHECK_CMD")
+        PREVIOUS_TASK_VALIDATION_LOOKUP[$TYPE_CHECK_CMD]=1
+
+        if ls -A tests/unit | grep -q .; then
+            COMBINED_VALIDATION+=("$UNIT_TEST_CMD")
+            PREVIOUS_TASK_VALIDATION_LOOKUP[$UNIT_TEST_CMD]=1
+        fi
+
+        if ls -A tests/e2e | grep -q .; then
+            COMBINED_VALIDATION+=("$E2E_TEST_CMD")
+            PREVIOUS_TASK_VALIDATION_LOOKUP[$E2E_TEST_CMD]=1
+        fi
+    elif [[ ${#PREVIOUS_TASK_VALIDATION[@]} -gt 0 ]]; then
+        # Make sure previous tasks are still passing
+        COMBINED_VALIDATION+=("${PREVIOUS_TASK_VALIDATION[@]}")
+    fi
+
+    # FIXME: Remove duplicate validations, multiple `npx tsc --noEmit` for example
+
+    for TEST_COMMAND in "${COMBINED_VALIDATION[@]}"; do
+        log INFO "Running Validation: $TEST_COMMAND"
+        set +e
+        TEST_OUTPUT=$(eval "$TEST_COMMAND" 2>&1)
+        TEST_EXIT_CODE=$?
+        set -e
+        
+        if [ $TEST_EXIT_CODE -ne 0 ]; then
+            break;
+        fi
+    done
 
     if [ $TEST_EXIT_CODE -eq 0 ]; then
-        echo "🟢 Task passed! Continuing..."
+        log SUCCESS "Task passed! Continuing..."
         CURRENT_TASK_LABEL="Iteration $((LOOP_COUNTER + 1))"
+
+        PREVIOUS_TASK_VALIDATION+=("$TARGETED_TEST")
+        PREVIOUS_TASK_VALIDATION_LOOKUP[$TARGETED_TEST]=1
         
         if [ -n "$PROPOSED_MEMORY" ]; then
             echo "$PROPOSED_MEMORY" > MEMORY.md
-            echo -e "Memory Updated:\n$PROPOSED_MEMORY"
+            log INFO "Memory Updated:\n$PROPOSED_MEMORY"
         fi
-        
+
         if [ -n "$PROPOSED_LEDGER" ]; then
-            CURRENT_TASK_LABEL=$(printf '%s' "$PROPOSED_LEDGER" | tr -d '\n' | sed -nE 's/.*"task"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')
+            PROPOSED_LEDGER=$(printf '%s' "$PROPOSED_LEDGER" | tr -d '\n')
+            CURRENT_TASK_LABEL=$(printf '%s' "$PROPOSED_LEDGER" | sed -nE 's/.*"task"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')
+            if [ -s .agent-ledger.jsonl ] && [ -n "$(tail -c1 .agent-ledger.jsonl)" ]; then
+                echo >> .agent-ledger.jsonl
+            fi
             echo "$PROPOSED_LEDGER" >> .agent-ledger.jsonl
-            echo -e "Ledger Entry Added:\n$PROPOSED_LEDGER"
+            log INFO "Ledger Entry Added:\n$PROPOSED_LEDGER"
         fi
 
         awk -v task="$CURRENT_TASK" '{
@@ -216,16 +252,25 @@ $PRD_CONTENT
         }' PRD.md > PRD.md.tmp && mv PRD.md.tmp PRD.md
         
         git add .
-        git commit -m "chore(ai): $CURRENT_TASK_LABEL" 
+        git commit -m "feat(ai): $CURRENT_TASK_LABEL"
+
+        TOTAL_LOOPS=$((TOTAL_LOOPS+LOOP_COUNTER))
+        LOOP_COUNTER=0
     else
-        echo "🔴 Validation failed. The agent must try again."
-        echo -e "Test Output:\n$TEST_OUTPUT"
+        log ERROR "Validation failed. The agent must try again."
+        log INFO "Test Output:\n$TEST_COMMAND\n$TEST_OUTPUT"
+
+        ERROR_FEEDBACK_HEADER="YOUR LAST ATTEMPT FAILED!
+        You tried to complete the task, but the validation failed."
+        if [[ ${PREVIOUS_TASK_VALIDATION_LOOKUP[$TEST_COMMAND]:-} ]]; then
+            ERROR_FEEDBACK_HEADER="YOUR LAST ATTEMPT CAUSED A REGRESSION!
+        You successfully implemented the task, but a previously working validation is now failing."
+        fi
 
         ERROR_FEEDBACK="
-        YOUR LAST ATTEMPT FAILED!
-        You tried to complete the task, but the validation test failed.
+        $ERROR_FEEDBACK_HEADER
         
-        Test Command: $TARGETED_TEST
+        Test Command: $TEST_COMMAND
         Exit Code: $TEST_EXIT_CODE
         
         Test Output / Error Logs:
@@ -234,11 +279,11 @@ $PRD_CONTENT
         Please analyze the error, fix the code, and try again.
         "
 
-        echo "Retrying in 5 seconds... (Ctrl+C to abort)"
+        log WARN "Retrying in 5 seconds... (Ctrl+C to abort)"
         sleep 5
     fi
 
-    echo "Looping..."
+    log INFO "Looping..."
 done
 
-echo "👋 Ralph Loop ended!"
+log INFO "👋 Ralph Loop ended after $TOTAL_LOOPS successful iteration(s)!"

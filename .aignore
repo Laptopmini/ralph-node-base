@@ -4,10 +4,12 @@
 .ralph.lock
 .ralph.log
 
-# Ignore the previously generated PRDs archive
-.prds/
+# Ignore the archive
+docs
 
-# Ralph scripts
-.github/scripts/backpressure.sh
-.github/scripts/ralph.sh
-.github/prompts/ralph.md
+# Ignore current PRD (fed via prompt)
+PRD.md
+
+# Scripts and prompts the agent shouldn't read/execute itself
+.github/scripts/**
+.github/prompts/**

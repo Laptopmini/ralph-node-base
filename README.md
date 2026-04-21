@@ -2,13 +2,7 @@
 
 A fork of [ralph-node](https://github.com/Laptopmini/ralph-node) that has been initialized by running the bootstrap PRD. Save some tokens by using this as a starting point, or just do it yourself!
 
-- **PRDs:** [View all Product Requirements Documents](/.prds)
-- **TDD:** [View all backpressure tests](/tests)
-- **Ralph Loop:** [View latest Ralph execution](/.ralph.log)
-
-Fork this repo and drop in a new `PRD.md` to start building something with the loop already bootstrapped.
-
-For full documentation on how the Ralph Loop works and how to use these repos, see the [original ralph-node README](https://github.com/Laptopmini/ralph-node#readme).
+For full documentation on how to use `ralph-node` and these repos, see the [original ralph-node README](https://github.com/Laptopmini/ralph-node#readme).
 
 ## Changelog
 
@@ -21,8 +15,9 @@ For full documentation on how the Ralph Loop works and how to use these repos, s
 
 | Tool | Role |
 |------|------|
-| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Default AI engine |
-| [OpenCode](https://opencode.ai/docs) | Alternative AI engine |
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Agentic CLI |
+| [OpenCode](https://opencode.ai/) | Open Source Agentic CLI |
+| [LM Studio](https://lmstudio.ai/) | Local LLM Server |
 | [Jest](https://jestjs.io/) | Unit testing |
 | [Playwright](https://playwright.dev/) | E2E testing |
 | [Biome](https://biomejs.dev/) | Linting and formatting |

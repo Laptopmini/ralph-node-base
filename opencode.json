@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "{env:OPENCODE_MODEL}",
+  "provider": {
+    "{env:OPENCODE_CUSTOM_PROVIDER}": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "{env:OPENCODE_CUSTOM_PROVIDER_NAME}",
+      "options": {
+        "baseURL": "http://127.0.0.1:1234/v1"
+      },
+      "models": {
+        "{env:OPENCODE_CUSTOM_MODEL}": {
+          "name": "{env:OPENCODE_CUSTOM_MODEL_NAME}"
+        }
+      }
+    },
+    "minimax": {
+      "npm": "@ai-sdk/anthropic",
+      "options": {
+        "baseURL": "https://api.minimax.io/anthropic/v1",
+        "apiKey": "{env:MINIMAX_API_KEY}"
+      },
+      "models": {
+        "MiniMax-M2.7": {
+          "name": "MiniMax-M2.7"
+        }
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # ==============================================================================
 # FORK REPO: Create a fork of the current repo within your own organization,
@@ -7,6 +7,8 @@
 # ==============================================================================
 
 set -euo pipefail
+
+source .github/scripts/helpers/log.sh
 
 if [[ -z "${1:-}" ]]; then
   echo "Usage: $0 <new-repo-name>" >&2
@@ -19,7 +21,7 @@ UPSTREAM=$(git remote get-url origin)
 BARE_CLONE="temp-repo-bare-clone"
 NEW_REPO="https://github.com/$NAMESPACE/$NAME.git"
 
-echo "Cloning $UPSTREAM as $NAME..."
+log INFO "Cloning $UPSTREAM as $NAME..."
 
 # Navigate to parent directory
 cd ..
@@ -29,6 +31,9 @@ git clone --bare "$UPSTREAM" "$BARE_CLONE"
 
 # Create a new empty repo on GitHub
 gh repo create "$NAMESPACE/$NAME" --public
+
+# Avoid a race condition
+sleep 3
 
 # Mirror-push everything to the new repo
 cd "$BARE_CLONE"
@@ -45,10 +50,14 @@ git clone "$NEW_REPO"
 cd "$NAME"
 git remote add upstream "$UPSTREAM"
 
-npm pkg set name="$NAME"
+# Set the package name
+if command -v npm &>/dev/null && [ -f package.json ]; then
+    npm pkg set name="$NAME" || true
+fi
 
 if command -v code &>/dev/null; then
+  # Open the project in VS Code
   code .
 fi
 
-echo "✅ Done!."
+log SUCCESS "Done!"

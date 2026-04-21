@@ -29,5 +29,10 @@ vite.config.ts.timestamp-*
 
 # Ralph loop files
 .ralph.lock
-PRD.md
 !.ralph.log
+
+# Maestro files
+.maestro.*
+
+# E2E & Unit tests
+test-results/
