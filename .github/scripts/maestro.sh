@@ -256,8 +256,7 @@ while $MISSING_BLUEPRINT; do
         FOLDER_NAME="${BASE}-${COUNTER}"
     done
 
-    mkdir -p "$FOLDER_NAME"
-    log INFO "Created \"$FOLDER_NAME\"!"
+    log INFO "Using $FOLDER_NAME as archive destination."
 done
 
 if [[ ! -s "$BLUEPRINT_FILE" ]]; then
@@ -274,11 +273,17 @@ while IFS= read -r LEVEL <&3; do
     log INFO "Generating PRD(s)..."
     rm -f "$PR_TSV_FILE"
     for TICKET_NUM in $(echo "$LEVEL" | tr ',' '\n' | grep .); do
-        TICKETMASTER_PROMPT=$(bash .github/scripts/ticketmaster/get-prompt.sh "$BLUEPRINT_FILE" "$TICKET_NUM")
         bash .github/scripts/ticketmaster/checkout.sh "$TICKET_NUM"
+
+        TICKETMASTER_PROMPT=$(bash .github/scripts/ticketmaster/get-prompt.sh "$BLUEPRINT_FILE" "$TICKET_NUM")
         prompt "$TICKETMASTER_PROMPT" --allowedTools "Write(PRD.md),Edit(PRD.md)" --model "$SENIOR_DEVELOPER_MODEL" || true
+
+        mkdir -p "$FOLDER_NAME"
+        log INFO "Backing up prompt to \"$FOLDER_NAME..."
+
         TICKET_TITLE=$(awk -v n="$TICKET_NUM" '$0 ~ "^#### Ticket " n ":" { sub(/^#### Ticket [0-9]+: */, ""); print; exit }' "$BLUEPRINT_FILE")
         echo "$TICKETMASTER_PROMPT" > "$FOLDER_NAME/ticketmaster-$TICKET_NUM.md"
+
         bash .github/scripts/ticketmaster/push-changes.sh "$TICKET_NUM" "$TICKET_TITLE"
     done
 
