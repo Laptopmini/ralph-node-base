@@ -27,13 +27,14 @@ Write `PRD.md` at the repository root. Use exactly this structure:
 Convert each numbered task from the ticket into a checklist line:
 
 ```
-- [ ] <Short title>. <Detailed description — specific enough for a junior developer who has no other context.> `[test: <test-command>]`
+- [ ] <Short title>. <Task description from the blueprint, copied verbatim.> `[test: <test-command>]`
 ```
 
 Rules:
 - Each task MUST be a single line (no line breaks within a task)
 - Each task MUST end with a `[test: ...]` annotation
-- Write tasks clearly for a junior developer — spell out exactly what to create, modify, or configure
+- Copy the task description exactly as written in the blueprint — do not rephrase, expand, or add details. Your job is to format, not rewrite.
+- Do not invent version numbers, package names, or implementation details that are not in the blueprint
 
 ### Deriving the test command
 
@@ -66,8 +67,8 @@ Given a ticket section like this (input):
     > - No DOM or browser APIs
     >
     > **Tasks:**
-    > 1. [logic] Create `src/timer-logic.ts` with pure functions: `formatTime` and `tick`
-    > 2. [logic] Create unit tests for timer logic
+    > 1. [logic] Create `src/timer-logic.ts` with pure functions: `formatTime(totalSeconds: number): string` (returns "MM:SS") and `tick(remainingSeconds: number): number` (decrements by 1, floors at 0), and a constant `POMODORO_DURATION_SECONDS = 1500`.
+    > 2. [logic] Create `tests/unit/timer-logic.test.ts` — test `formatTime` (25:00, 00:00, 09:59 edge cases), test `tick` (decrements, does not go below 0), test duration constant equals 1500.
 
 …the Write tool call's `content` argument should be the following text (shown indented here for illustration — do NOT indent it in the actual file, and do NOT wrap it in backticks):
 

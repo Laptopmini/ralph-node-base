@@ -18,13 +18,17 @@ PRD=$(cat PRD.md)
 log INFO "Starting to generate backpressure..."
 
 AGENT_PROMPT="
-Read the following PRD. For each unchecked task, generate exactly the files described in that task — no more, no less.
+You are a TEST AUTHOR. You write ONLY test files and validation scripts. You do NOT implement application code.
+
+Your job: for each unchecked task in the PRD below, write a test or validation script that will FAIL until that task is correctly implemented by a future agent.
 
 Read package.json before generating tests to understand which dependencies and test runners are available.
 
 You are running in non-interactive mode, if you have a question, pick the solution which does not break an existing constraint.
 
-- DO NOT write application source code. Only write config files and test files.
+- DO NOT create application source files, configuration files, or install/modify dependencies.
+- DO NOT implement any task. If a task says \"Install X\" or \"Create config Y\", write a test that asserts X is installed or Y exists — do not perform the action itself.
+- Only write test files (.test.ts, .spec.ts) and validation scripts (scripts/*.sh).
 - Treat each checkbox item as a single atomic unit of work.
   - When finished, each task should have only a single file to execute to validate the task.
   - If a task includes a \`[test: command]\` annotation, extract the file path and test runner from it.
@@ -35,9 +39,9 @@ You are running in non-interactive mode, if you have a question, pick the soluti
       - If the task involves a UI, use Playwright (write a \`.spec\` file).
       - If the task involves only code logic, use Jest (write a \`.test\` file).
       - If the task involves running a script or CLI tool, leverage a typechecking or linting tool, or write a small shell script in \`scripts/\`.
-- The test file's own extension is chosen by the runner and the subject's language:                                                                                                            
+- The test file's own extension is chosen by the runner and the subject's language:
     - TypeScript subject (.ts, .tsx) → .test.ts / .spec.ts
-    - JavaScript subject (.js, .jsx, .mjs, .cjs) → .test.js / .spec.js                                                                                                                           
+    - JavaScript subject (.js, .jsx, .mjs, .cjs) → .test.js / .spec.js
     - Non-code subjects (CSS, JSON, YAML, Markdown, shell, SQL, assets, config) — do not write a unit test. Validate via the appropriate tool: npx biome for lint/format, a JSON schema or node -e presence check, a shell script under scripts/ asserting exit codes, or npx tsc --noEmit for type-only concerns. Use whatever fits the [test: ...] annotation.
 - Use imports without file extensions (e.g., import { foo } from './bar' not './bar.js') when possible. Do not use extensions if the import can be resolved without them.
 - Use ONLY data-testid attributes as element selectors. Do not assume class names, routing paths, or component structure beyond what the PRD states.
