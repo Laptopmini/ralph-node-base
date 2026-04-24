@@ -27,7 +27,8 @@ isolate_backpressure() {
 # If called with no arguments, restore all backpressure
 # If called with a single argument, restore backpressure for that command
 restore_backpressure() {
-    if [ -z "$1" ]; then
+    local COMMAND="${1:-}"
+    if [ -z "$COMMAND" ]; then
         log INFO "Restoring all backpressure..."
 
         if [[ ! -d "$BACKPRESSURE_BACKUP_FOLDER" ]]; then
@@ -39,11 +40,11 @@ restore_backpressure() {
         rsync -av --ignore-existing "$BACKPRESSURE_BACKUP_FOLDER/$BACKPRESSURE_FOLDER"/ "$BACKPRESSURE_FOLDER"/
         rm -rf "$BACKPRESSURE_BACKUP_FOLDER"
     else
-        log INFO "Restoring backpressure for $1..."
-        local file_path="${1##* }"
+        log INFO "Restoring backpressure for $COMMAND..."
+        local file_path="${COMMAND##* }"
 
         if [[ ! "$file_path" == *.* ]]; then
-            log INFO "No file path found in $1. Skipping restoration..."
+            log INFO "No file path found in $COMMAND. Skipping restoration..."
             return 0
         fi
 
