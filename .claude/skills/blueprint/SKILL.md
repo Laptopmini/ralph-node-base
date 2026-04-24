@@ -156,7 +156,7 @@ Review existing test files (unit tests, E2E specs, etc.) and determine which one
 
 Each conflicting test file must be:
 1. Listed in the appropriate ticket's "Files owned" section with a `(delete)` tag
-2. Represented as a dedicated task describing **which file to delete** and **how to validate the removal** (e.g. "Delete `tests/e2e/old-page.spec.ts` — verify by confirming the file no longer exists on disk and that no other source files import or reference it")
+2. Represented as a dedicated task describing **which file to delete** and **how to validate the removal** (e.g. "Delete `tests/unit/old-page.test.ts` — verify by confirming the file no longer exists on disk and that no other source files import or reference it")
 
 This ensures the implementation does not leave behind broken or misleading tests.
 
@@ -245,7 +245,7 @@ Print one line per level, with comma-separated ticket numbers (no spaces, ascend
 - `src/components/Nav.tsx`
 
 **Conflicting test files to remove:**
-- `tests/e2e/old-page.spec.ts` — tests a page being replaced by this feature
+- `tests/unit/old-page.test.ts` — tests a page being replaced by this feature
 
 ---
 
@@ -270,10 +270,10 @@ all tickets in its `depends_on` list are complete. Siblings under the same paren
 - `app/api/reading-list/[id]/route.ts` (create)
 
 **Tasks:**
-1. [logic] Add `ReadingListItem` model to `schema.prisma` with fields: `id` (cuid), `userId` (relation to User), `articleUrl` (string), `title` (string), `isRead` (boolean, default false), `createdAt` (datetime). Run migration
-2. [logic] Implement `POST /api/reading-list` — accepts `{ articleUrl, title }`, creates a `ReadingListItem` for the authenticated user, returns 201 with the created item. Returns 401 if unauthenticated
-3. [logic] Implement `DELETE /api/reading-list/[id]` — deletes the item if it belongs to the authenticated user, returns 204. Returns 404 if not found, 403 if owned by another user
-4. [logic] Implement `PATCH /api/reading-list/[id]` — toggles `isRead` between true/false for the authenticated user's item, returns 200 with the updated item
+1. [code] Add `ReadingListItem` model to `schema.prisma` with fields: `id` (cuid), `userId` (relation to User), `articleUrl` (string), `title` (string), `isRead` (boolean, default false), `createdAt` (datetime). Run migration
+2. [code] Implement `POST /api/reading-list` — accepts `{ articleUrl, title }`, creates a `ReadingListItem` for the authenticated user, returns 201 with the created item. Returns 401 if unauthenticated
+3. [code] Implement `DELETE /api/reading-list/[id]` — deletes the item if it belongs to the authenticated user, returns 204. Returns 404 if not found, 403 if owned by another user
+4. [code] Implement `PATCH /api/reading-list/[id]` — toggles `isRead` between true/false for the authenticated user's item, returns 200 with the updated item
 
 ---
 
@@ -292,14 +292,14 @@ all tickets in its `depends_on` list are complete. Siblings under the same paren
 - `src/components/ReadingList/index.ts` (create)
 - `app/reading-list/page.tsx` (create)
 - `src/components/Nav.tsx` (modify)
-- `tests/e2e/old-page.spec.ts` (delete)
+- `tests/unit/old-page.test.ts` (delete)
 
 **Tasks:**
-1. [infra] Delete `tests/e2e/old-page.spec.ts` — this E2E test targets a page being replaced by the reading list feature. Verify the file no longer exists on disk and that no other source files import or reference it
-2. [logic] Create `readingListStore.ts` with Zustand — expose `items` (array of `ReadingListItem`), `fetchItems()`, `addItem(articleUrl, title)`, `removeItem(id)`, `toggleRead(id)`. Use real `fetch()` calls to `/api/reading-list` endpoints from Ticket 1
-3. [ui] Build `ReadingList` component — renders a list of items (`data-testid="reading-list"`), each item shows title, URL, read/unread status (`data-testid="item-{id}"`), a delete button (`data-testid="delete-{id}"`), and a toggle-read button (`data-testid="toggle-read-{id}"`). Include a filter bar (`data-testid="filter-bar"`) with "All", "Unread", "Read" options
-4. [ui] Add `/reading-list` page (`data-testid="reading-list-page"`) — mounts `ReadingList` component, shows loading state (`data-testid="loading-indicator"`) while fetching, and empty state (`data-testid="empty-state"`) when no items exist
-5. [ui] Add nav link (`data-testid="nav-reading-list"`) in `Nav.tsx` pointing to `/reading-list`
+1. [infra] Delete `tests/unit/old-page.test.ts` — this E2E test targets a page being replaced by the reading list feature. Verify the file no longer exists on disk and that no other source files import or reference it
+2. [code] Create `readingListStore.ts` with Zustand — expose `items` (array of `ReadingListItem`), `fetchItems()`, `addItem(articleUrl, title)`, `removeItem(id)`, `toggleRead(id)`. Use real `fetch()` calls to `/api/reading-list` endpoints from Ticket 1
+3. [code] Build `ReadingList` component — renders a list of items (`data-testid="reading-list"`), each item shows title, URL, read/unread status (`data-testid="item-{id}"`), a delete button (`data-testid="delete-{id}"`), and a toggle-read button (`data-testid="toggle-read-{id}"`). Include a filter bar (`data-testid="filter-bar"`) with "All", "Unread", "Read" options
+4. [code] Add `/reading-list` page (`data-testid="reading-list-page"`) — mounts `ReadingList` component, shows loading state (`data-testid="loading-indicator"`) while fetching, and empty state (`data-testid="empty-state"`) when no items exist
+5. [code] Add nav link (`data-testid="nav-reading-list"`) in `Nav.tsx` pointing to `/reading-list`
 
 ---
 
@@ -323,7 +323,7 @@ Before outputting the plan, verify:
 - [ ] Assumptions cover any ambiguity that would block a developer from starting
 - [ ] It is valid to produce only one ticket if the work cannot be cleanly parallelized
 - [ ] No ticket proposes modifying protected files (`.github/scripts/*`, `.github/prompts/*`, `.claude/settings.json`, `.aignore`, `biome.json`)
-- [ ] Every task has a nature tag: `[logic]`, `[ui]`, or `[infra]`
+- [ ] Every task has a nature tag: `[code]` or `[infra]`
 - [ ] Every file in "Files owned" has an operation tag: `(create)`, `(modify)`, or `(delete)`
 - [ ] Every ticket has a Constraints section (can be empty if none apply)
 - [ ] Every Constraints entry applies to every task in the ticket — no entry references another ticket, references a file created only by a later task in this ticket, or scopes itself to a specific task's ordering
@@ -346,11 +346,8 @@ Before outputting the plan, verify:
 **Tasks** within a ticket are atomic units of work done one at a time in sequence. Each task should be a single, focused unit of work that a headless AI agent can implement in one cycle. If a task requires touching more than 2-3 files or involves multiple unrelated concerns, split it. If two adjacent tasks always touch only the same file, consider merging them.
 
 **Task nature tags** indicate the type of work:
-- `[logic]` — business logic, API routes, data models, state management, utilities
-- `[ui]` — components, pages, layouts, styling, user interactions that render in a browser
-- `[infra]` — configuration, environment setup, dependency installation, CI/CD, standalone style/CSS files (e.g. global stylesheets, design tokens, theme variables) that are not yet consumed by a rendered page
-
-A standalone CSS or stylesheet task (e.g. "create `globals.css` with design tokens") must be tagged `[infra]`, not `[ui]`. The `[ui]` tag triggers E2E (Playwright) testing, which requires a rendered page. A CSS file that no component imports yet cannot be validated by Playwright — use `[infra]` so the downstream test command falls back to linting or type-checking.
+- `[code]` — application code: business logic, API routes, data models, state management, components, pages, layouts, styling
+- `[infra]` — configuration, environment setup, dependency installation, CI/CD, standalone resource files not yet consumed by application code
 
 Avoid vague tasks like "implement X" — each task should describe exactly what to build or change. These tasks will be consumed by downstream tooling, so they should be as specific as possible.
 

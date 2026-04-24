@@ -5,6 +5,7 @@ BACKPRESSURE_FOLDER="tests"
 
 # Moves all tests to a backup folder to avoid agents reading them before they are needed
 isolate_backpressure() {
+    log INFO "Isolating backpressure..."
     if [[ -d "$BACKPRESSURE_BACKUP_FOLDER" ]]; then
         log ERROR "There is already backpressure isolated. Aborting."
         exit 1
@@ -64,4 +65,21 @@ restore_backpressure() {
     fi
     
     log INFO "Restored backpressure!"
+}
+
+remove_backpressure() {
+    log INFO "Removing backpressure..."
+    local NEW_TESTS=$(git diff --name-only maestro...HEAD | grep '^tests/' || true)
+
+    if [ -z "$NEW_TESTS" ]; then
+        log INFO "No backpressure to remove. Continuing..."
+        return 0
+    fi
+
+    echo "$NEW_TESTS" | xargs git rm
+
+    git add .
+    git diff --cached --quiet || git commit -m "chore(ai): Clean out backpressure"
+
+    log INFO "Removed backpressure!"
 }

@@ -38,7 +38,7 @@ Rules:
 
 ### Deriving the test command
 
-Each task in the ticket has a nature tag: `[logic]`, `[ui]`, or `[infra]`.
+Each task in the ticket has a nature tag: `[code]` or `[infra]`.
 
 **Step 1** — Derive a filename from the task's short title:
 - Convert to kebab-case
@@ -50,8 +50,7 @@ Example: "Add a banner at the top" → `add-banner-top`
 
 | Tag | Test command |
 |-----|-------------|
-| `[logic]` | `npx jest tests/unit/<filename>.test.tsx` |
-| `[ui]` | `npx playwright test tests/e2e/<filename>.spec.ts` |
+| `[code]` | `npx jest tests/unit/<filename>.test.tsx` |
 | `[infra]` | `bash tests/scripts/<filename>.sh` |
 
 ---
@@ -67,8 +66,8 @@ Given a ticket section like this (input):
     > - No DOM or browser APIs
     >
     > **Tasks:**
-    > 1. [logic] Create `src/timer-logic.ts` with pure functions: `formatTime(totalSeconds: number): string` (returns "MM:SS") and `tick(remainingSeconds: number): number` (decrements by 1, floors at 0), and a constant `POMODORO_DURATION_SECONDS = 1500`.
-    > 2. [logic] Create `tests/unit/timer-logic.test.ts` — test `formatTime` (25:00, 00:00, 09:59 edge cases), test `tick` (decrements, does not go below 0), test duration constant equals 1500.
+    > 1. [code] Create `src/timer-logic.ts` with pure functions: `formatTime(totalSeconds: number): string` (returns "MM:SS") and `tick(remainingSeconds: number): number` (decrements by 1, floors at 0), and a constant `POMODORO_DURATION_SECONDS = 1500`.
+    > 2. [code] Create `tests/unit/timer-logic.test.ts` — test `formatTime` (25:00, 00:00, 09:59 edge cases), test `tick` (decrements, does not go below 0), test duration constant equals 1500.
 
 …the Write tool call's `content` argument should be the following text (shown indented here for illustration — do NOT indent it in the actual file, and do NOT wrap it in backticks):
 

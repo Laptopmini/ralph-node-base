@@ -12,6 +12,10 @@ source .github/scripts/agents/prompt.sh
 source .github/scripts/summarizer.sh
 source .github/scripts/helpers/notify.sh
 
+# FIXME: Ticketmaster seems to be escaping \" rather than just using them
+
+# FIXME: Blueprint show have tasks with more description. Sometimes they feel a little short and could be interpreted in a different way.
+
 # Settings
 
 LOCK_FILE=".maestro.lock"
@@ -369,8 +373,6 @@ while IFS= read -r LEVEL <&3; do
         # Fail-fast: if any ralph loop fails, abort the entire run
         git checkout "$BASE_BRANCH_NAME" && git pull
         npm i && npm run ralph -- "$FOLDER_NAME"
-        git add .
-        git diff --cached --quiet || git commit -m "chore(ai): Update Ralph log"
         git push -u origin "$BASE_BRANCH_NAME"
 
         summarizer "$BASE_BRANCH_NAME" maestro
@@ -405,6 +407,8 @@ mv -f "$LOG_FILE" "$FOLDER_NAME/maestro.log"
 git add .
 git commit -m "chore(ai): Add Maestro log for $FOLDER_NAME"
 git push -u origin maestro
+
+# FIXME: Check if implementation is according to original plan, if there are any broken tests, update them or create new ones, leverage both jest and playwright
 
 log INFO "Opening final PR..."
 summarizer maestro main

@@ -165,7 +165,7 @@ $PRD_CONTENT
     PROPOSED_LEDGER=$(echo "$OUTPUT" | awk '/<ledger>/{flag=1; next} /<\/ledger>/{flag=0} flag')
 
     log INFO "Determining validation commands..."
-    ALLOWED_PREFIXES=("npm test" "npx jest" "npx playwright" "npx tsc" "npx biome" "bash scripts/")
+    ALLOWED_PREFIXES=("npm test" "npx jest" "npx tsc" "npx biome" "bash scripts/")
     ALLOWED=false
     for prefix in "${ALLOWED_PREFIXES[@]}"; do
         if [[ "$TARGETED_TEST" == "$prefix"* ]]; then
@@ -294,5 +294,7 @@ $PRD_CONTENT
 
     log INFO "Looping..."
 done
+
+remove_backpressure
 
 log INFO "👋 Ralph Loop ended after $TOTAL_LOOPS successful iteration(s)!"

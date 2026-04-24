@@ -37,7 +37,6 @@ You are running in non-interactive mode, if you have a question, pick the soluti
   - The generated test file MUST match the exact path in the annotation (e.g., \`[test: npx jest tests/unit/create-basepath-helpers.test.ts]\` → create \`tests/unit/create-basepath-helpers.test.ts\`).
   - The test runner specified in the annotation determines the test framework and file type:
     - \`npx jest tests/unit/foo.test.ts\` → Jest unit test
-    - \`npx playwright test tests/e2e/foo.spec.ts\` → Playwright E2E test
     - \`bash tests/scripts/foo.sh\` → shell validation script
 - The test file's own extension is chosen by the runner and the subject's language:
     - TypeScript subject (.ts, .tsx) → .test.ts / .spec.ts
@@ -68,6 +67,6 @@ $LEDGER
 $PRD
 "
 
-prompt "$AGENT_PROMPT" --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run lint),Bash(npm run check-types),Bash(npm test),Bash(npx jest:*),Bash(npx playwright:*),Bash(npx tsc:*),Bash(npx biome:*)"  --model "${STAFF_DEVELOPER_MODEL:-claude-opus-4-6}"
+prompt "$AGENT_PROMPT" --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run lint),Bash(npm run check-types),Bash(npm test),Bash(npx jest:*),Bash(npx tsc:*),Bash(npx biome:*)"  --model "${STAFF_DEVELOPER_MODEL:-claude-opus-4-6}"
 
 log INFO "Backpressure prompt completed."

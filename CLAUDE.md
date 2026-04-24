@@ -60,7 +60,7 @@ Maestro orchestrates feature development as a multi-phase pipeline. A human revi
 - [ ] Task description `[test: npx jest tests/foo.test.ts]`
 ```
 
-The `[test: command]` annotation specifies targeted validation for that task. If omitted, `npm test` (full suite) is used. Allowed test commands must start with `npm test`, `npx jest`, `npx playwright`, `npx tsc`, or `npx biome`. PRDs are normally authored by `/ticketmaster`, not by hand.
+The `[test: command]` annotation specifies targeted validation for that task. If omitted, `npm test` (full suite) is used. Allowed test commands must start with `npm test`, `npx jest`, `npx tsc`, or `npx biome`. PRDs are normally authored by `/ticketmaster`, not by hand.
 
 ### Key files
 
