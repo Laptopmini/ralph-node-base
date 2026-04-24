@@ -28,21 +28,20 @@ You are running in non-interactive mode, if you have a question, pick the soluti
 
 - DO NOT create application source files, configuration files, or install/modify dependencies.
 - DO NOT implement any task. If a task says \"Install X\" or \"Create config Y\", write a test that asserts X is installed or Y exists — do not perform the action itself.
-- Only write test files (.test.ts, .spec.ts) and validation scripts (scripts/*.sh).
+- Only write test files (.test.ts, .spec.ts) and validation scripts (tests/scripts/*.sh).
 - Treat each checkbox item as a single atomic unit of work.
-  - When finished, each task should have only a single file to execute to validate the task.
-  - If a task includes a \`[test: command]\` annotation, extract the file path and test runner from it.
-  - The generated test file MUST match the exact path in the annotation (e.g., \`[test: npx jest tests/foo.test.ts]\` → create \`tests/foo.test.ts\`).
-  - The test runner specified in the annotation (jest, playwright, etc.) takes precedence over any inference from the task description.
-  - If no \`[test: ...]\` annotation is present, fall back to inferring the tool, type, and path from the task description.
-- Infer the correct tool and test type from the task description:
-      - If the task involves a UI, use Playwright (write a \`.spec\` file).
-      - If the task involves only code logic, use Jest (write a \`.test\` file).
-      - If the task involves running a script or CLI tool, leverage a typechecking or linting tool, or write a small shell script in \`scripts/\`.
+  - Every task MUST include a \`[test: command]\` annotation. If a task is missing its annotation, STOP and report the error — do NOT infer or guess what test to write.
+  - Handle the \`[test: command]\` annotation as follows:
+    - If the command references a specific test file (e.g., \`[test: npx jest tests/unit/foo.test.ts]\`), create that exact file with the appropriate test content.
+    - If the command is a run-only command with NO file path (e.g., \`[test: npm run lint]\`, \`[test: npm run check-types]\`, \`[test: npx tsc --noEmit]\`, \`[test: npx biome check]\`), do NOT create any test file or validation script. The command itself IS the validation — it will pass or fail based on whether the implementation is correct. Skip this task entirely.
+  - The generated test file MUST match the exact path in the annotation (e.g., \`[test: npx jest tests/unit/create-basepath-helpers.test.ts]\` → create \`tests/unit/create-basepath-helpers.test.ts\`).
+  - The test runner specified in the annotation determines the test framework and file type:
+    - \`npx jest tests/unit/foo.test.ts\` → Jest unit test
+    - \`npx playwright test tests/e2e/foo.spec.ts\` → Playwright E2E test
+    - \`bash tests/scripts/foo.sh\` → shell validation script
 - The test file's own extension is chosen by the runner and the subject's language:
     - TypeScript subject (.ts, .tsx) → .test.ts / .spec.ts
     - JavaScript subject (.js, .jsx, .mjs, .cjs) → .test.js / .spec.js
-    - Non-code subjects (CSS, JSON, YAML, Markdown, shell, SQL, assets, config) — do not write a unit test. Validate via the appropriate tool: npx biome for lint/format, a JSON schema or node -e presence check, a shell script under scripts/ asserting exit codes, or npx tsc --noEmit for type-only concerns. Use whatever fits the [test: ...] annotation.
 - Use imports without file extensions (e.g., import { foo } from './bar' not './bar.js') when possible. Do not use extensions if the import can be resolved without them.
 - Use ONLY data-testid attributes as element selectors. Do not assume class names, routing paths, or component structure beyond what the PRD states.
 - Assert on: visibility, text content, ARIA roles, and keyboard focus where relevant to the task.

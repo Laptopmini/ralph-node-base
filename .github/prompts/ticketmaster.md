@@ -50,9 +50,9 @@ Example: "Add a banner at the top" → `add-banner-top`
 
 | Tag | Test command |
 |-----|-------------|
-| `[logic]` | `npx jest tests/unit/<filename>.test.ts` |
+| `[logic]` | `npx jest tests/unit/<filename>.test.tsx` |
 | `[ui]` | `npx playwright test tests/e2e/<filename>.spec.ts` |
-| `[infra]` | `npx tsc --noEmit` or `npm run lint` for config validation; `bash tests/scripts/<filename>.sh` otherwise |
+| `[infra]` | `bash tests/scripts/<filename>.sh` |
 
 ---
 
