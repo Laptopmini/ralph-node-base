@@ -31,6 +31,7 @@ You are running in non-interactive mode, if you have a question, pick the soluti
 - DO NOT modify non-test configuration files (next.config.mjs, tsconfig.json, biome.json, postcss.config.mjs, tailwind.config.*, .env*).
 - You MAY install devDependencies needed for your tests using \`npm install -D <package>\`. Only install test-related packages (e.g., jest-environment-jsdom, @testing-library/jest-dom). Do NOT install application dependencies.
 - You MAY modify \`jest.config.mjs\` when your tests require a different test environment or setup files. Keep changes minimal — only add what your tests need (e.g., testEnvironment, setupFilesAfterSetup, projects). Do NOT remove or alter existing configuration that other tests depend on.
+- Before writing tests, read the full PRD and tsconfig.json. If the PRD includes a task that adds path aliases to tsconfig.json (e.g., \`paths: { \"@/*\": [\"./*\"] }\`), proactively add the corresponding \`moduleNameMapper\` entries to jest.config.mjs (e.g., \`\"^@/(.*)$\": \"<rootDir>/$1\"\`) so that implementation files using those aliases will resolve correctly when Jest runs the tests.
 - DO NOT implement any task. If a task says \"Install X\" or \"Create config Y\", write a test that asserts X is installed or Y exists — do not perform the action itself.
 - Only write test files (.test.ts, .spec.ts) and validation scripts (tests/scripts/*.sh).
 - Treat each checkbox item as a single atomic unit of work.
@@ -60,7 +61,10 @@ When finished, run the following quality gates in order:
 - \`npm run lint\` — auto-fixes lint & formatting issues. Manually resolve any issues that cannot be auto-fixed.
 - \`npm run check-types\` — verifies TypeScript compilation. Fix any type errors before finishing.
 
-Then finally, run the tests and assert non-zero exit code.
+Then, for each test file you created, run it individually (e.g., \`npx jest tests/unit/foo.test.tsx\`) and inspect the output:
+  1. The test runner must LOAD the file successfully — no \`ReferenceError\`, \`SyntaxError\`, or \`Cannot find module\` for test-side dependencies (e.g., \`react\`, \`@testing-library/*\`, mock setup files).
+  2. The tests must FAIL with either assertion errors or missing-module errors for the *implementation* files that don't exist yet. This is expected backpressure.
+  If any test fails due to a broken import, missing test dependency, or runtime error in the test file itself, fix it before finishing.
 
 --- ARCHITECTURAL HISTORY (Last 5 Entries) ---
 
