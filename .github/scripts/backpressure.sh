@@ -30,7 +30,7 @@ You are running in non-interactive mode, if you have a question, pick the soluti
 - DO NOT create or modify application source files (src/, app/, pages/, components/, lib/, styles/).
 - DO NOT modify non-test configuration files (next.config.mjs, tsconfig.json, biome.json, postcss.config.mjs, tailwind.config.*, .env*).
 - You MAY install devDependencies needed for your tests using \`npm install -D <package>\`. Only install test-related packages (e.g., jest-environment-jsdom, @testing-library/jest-dom). Do NOT install application dependencies.
-- You MAY modify \`jest.config.mjs\` when your tests require a different test environment or setup files. Keep changes minimal — only add what your tests need (e.g., testEnvironment, setupFilesAfterSetup, projects). Do NOT remove or alter existing configuration that other tests depend on.
+- You MAY modify \`jest.config.mjs\` when your tests require a different test environment or setup files. Keep changes minimal — only add what your tests need (e.g., testEnvironment, setupFilesAfterEnv, projects). Do NOT remove or alter existing configuration that other tests depend on.
 - Before writing tests, read the full PRD and tsconfig.json. If the PRD includes a task that adds path aliases to tsconfig.json (e.g., \`paths: { \"@/*\": [\"./*\"] }\`), proactively add the corresponding \`moduleNameMapper\` entries to jest.config.mjs (e.g., \`\"^@/(.*)$\": \"<rootDir>/\$1\"\`) so that implementation files using those aliases will resolve correctly when Jest runs the tests.
 - DO NOT implement any task. If a task says \"Install X\" or \"Create config Y\", write a test that asserts X is installed or Y exists — do not perform the action itself.
 - Only write test files (.test.ts, .spec.ts) and validation scripts (tests/scripts/*.sh).
@@ -59,6 +59,7 @@ You are running in non-interactive mode, if you have a question, pick the soluti
     - JavaScript subject (.js, .jsx, .mjs, .cjs) → .test.js / .spec.js
 - Use imports without file extensions (e.g., import { foo } from './bar' not './bar.js') when possible. Do not use extensions if the import can be resolved without them.
 - Use ONLY data-testid attributes as element selectors. Do not assume class names, routing paths, or component structure beyond what the PRD states.
+- React DOM treats \`<html>\`, \`<body>\`, and \`<head>\` as singleton elements — they merge with the real document instead of rendering inside the test container. When testing components that render these elements, query them via \`document.documentElement\`, \`document.body\`, or \`document.head\` directly. Do not use \`container.querySelector()\` or \`screen.getByTestId()\` for document-level elements.
 - Assert on: visibility, text content, ARIA roles, and keyboard focus where relevant to the task.
 - Tests should fail against a blank implementation — avoid trivially passing assertions (e.g. no expect(true).toBe(true)).
 - Sanity tests must contain the minimum assertion described — do not expand them.
@@ -75,6 +76,7 @@ When finished, run the following quality gates in order:
 Then, for each test file you created, run it individually (e.g., \`npx jest tests/unit/foo.test.tsx\`) and inspect the output:
   1. The test runner must LOAD the file successfully — no \`ReferenceError\`, \`SyntaxError\`, or \`Cannot find module\` for test-side dependencies (e.g., \`react\`, \`@testing-library/*\`, mock setup files).
   2. The tests must FAIL with either assertion errors or missing-module errors for the *implementation* files that don't exist yet. This is expected backpressure.
+  3. For each failing assertion, verify it CAN pass once a correct implementation exists: trace what the rendered DOM or output would look like and confirm your queries target elements that will actually be present and findable. If an assertion would still fail against a correct implementation, fix the test.
   If any test fails due to a broken import, missing test dependency, or runtime error in the test file itself, fix it before finishing.
 
 --- ARCHITECTURAL HISTORY (Last 5 Entries) ---
