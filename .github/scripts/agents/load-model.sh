@@ -26,7 +26,7 @@ if ! echo "$STATUS_OUTPUT" | grep -q "· $1"; then
   fi
 
   # Load the specified model
-  lms load "$1"
+  lms load "$1" --ttl 1800
   if [ $? -ne 0 ]; then
     log ERROR "Failed to load model '$1' in LM Studio." >&2
   fi

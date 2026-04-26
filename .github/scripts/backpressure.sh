@@ -88,6 +88,6 @@ $LEDGER
 $PRD
 "
 
-prompt "$AGENT_PROMPT" --cli claude --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run lint),Bash(npm run check-types),Bash(npm test),Bash(npx jest:*),Bash(npx tsc:*),Bash(npx biome:*),Bash(npm install -D *),Bash(bash tests/scripts/*)"  --model "${STAFF_DEVELOPER_MODEL:-claude-opus-4-6}"
+prompt "$AGENT_PROMPT" --cli claude --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run lint),Bash(npm run check-types),Bash(npm test),Bash(npx jest:*),Bash(npx tsc:*),Bash(npx biome:*),Bash(npm install -D *),Bash(bash tests/scripts/*)"  --model "${SENIOR_DEVELOPER_MODEL:-claude-opus-4-6}"
 
 log INFO "Backpressure prompt completed."

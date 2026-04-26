@@ -270,10 +270,10 @@ all tickets in its `depends_on` list are complete. Siblings under the same paren
 - `app/api/reading-list/[id]/route.ts` (create)
 
 **Tasks:**
-1. [code] Add `ReadingListItem` model to `schema.prisma` with fields: `id` (cuid), `userId` (relation to User), `articleUrl` (string), `title` (string), `isRead` (boolean, default false), `createdAt` (datetime). Run migration
-2. [code] Implement `POST /api/reading-list` — accepts `{ articleUrl, title }`, creates a `ReadingListItem` for the authenticated user, returns 201 with the created item. Returns 401 if unauthenticated
-3. [code] Implement `DELETE /api/reading-list/[id]` — deletes the item if it belongs to the authenticated user, returns 204. Returns 404 if not found, 403 if owned by another user
-4. [code] Implement `PATCH /api/reading-list/[id]` — toggles `isRead` between true/false for the authenticated user's item, returns 200 with the updated item
+1. [code, add-reading-list-item-model] Add `ReadingListItem` model to `schema.prisma` with fields: `id` (cuid), `userId` (relation to User), `articleUrl` (string), `title` (string), `isRead` (boolean, default false), `createdAt` (datetime). Run migration
+2. [code, implement-post-reading-list] Implement `POST /api/reading-list` — accepts `{ articleUrl, title }`, creates a `ReadingListItem` for the authenticated user, returns 201 with the created item. Returns 401 if unauthenticated
+3. [code, implement-delete-reading-list] Implement `DELETE /api/reading-list/[id]` — deletes the item if it belongs to the authenticated user, returns 204. Returns 404 if not found, 403 if owned by another user
+4. [code, implement-patch-reading-list] Implement `PATCH /api/reading-list/[id]` — toggles `isRead` between true/false for the authenticated user's item, returns 200 with the updated item
 
 ---
 
@@ -295,11 +295,11 @@ all tickets in its `depends_on` list are complete. Siblings under the same paren
 - `tests/unit/old-page.test.ts` (delete)
 
 **Tasks:**
-1. [infra] Delete `tests/unit/old-page.test.ts` — this E2E test targets a page being replaced by the reading list feature. Verify the file no longer exists on disk and that no other source files import or reference it
-2. [code] Create `readingListStore.ts` with Zustand — expose `items` (array of `ReadingListItem`), `fetchItems()`, `addItem(articleUrl, title)`, `removeItem(id)`, `toggleRead(id)`. Use real `fetch()` calls to `/api/reading-list` endpoints from Ticket 1
-3. [code] Build `ReadingList` component — renders a list of items (`data-testid="reading-list"`), each item shows title, URL, read/unread status (`data-testid="item-{id}"`), a delete button (`data-testid="delete-{id}"`), and a toggle-read button (`data-testid="toggle-read-{id}"`). Include a filter bar (`data-testid="filter-bar"`) with "All", "Unread", "Read" options
-4. [code] Add `/reading-list` page (`data-testid="reading-list-page"`) — mounts `ReadingList` component, shows loading state (`data-testid="loading-indicator"`) while fetching, and empty state (`data-testid="empty-state"`) when no items exist
-5. [code] Add nav link (`data-testid="nav-reading-list"`) in `Nav.tsx` pointing to `/reading-list`
+1. [infra, delete-old-page-test] Delete `tests/unit/old-page.test.ts` — this E2E test targets a page being replaced by the reading list feature. Verify the file no longer exists on disk and that no other source files import or reference it
+2. [code, create-reading-list-store] Create `readingListStore.ts` with Zustand — expose `items` (array of `ReadingListItem`), `fetchItems()`, `addItem(articleUrl, title)`, `removeItem(id)`, `toggleRead(id)`. Use real `fetch()` calls to `/api/reading-list` endpoints from Ticket 1
+3. [code, build-reading-list-component] Build `ReadingList` component — renders a list of items (`data-testid="reading-list"`), each item shows title, URL, read/unread status (`data-testid="item-{id}"`), a delete button (`data-testid="delete-{id}"`), and a toggle-read button (`data-testid="toggle-read-{id}"`). Include a filter bar (`data-testid="filter-bar"`) with "All", "Unread", "Read" options
+4. [code, add-reading-list-page] Add `/reading-list` page (`data-testid="reading-list-page"`) — mounts `ReadingList` component, shows loading state (`data-testid="loading-indicator"`) while fetching, and empty state (`data-testid="empty-state"`) when no items exist
+5. [code, add-nav-link] Add nav link (`data-testid="nav-reading-list"`) in `Nav.tsx` pointing to `/reading-list`
 
 ---
 
@@ -323,7 +323,8 @@ Before outputting the plan, verify:
 - [ ] Assumptions cover any ambiguity that would block a developer from starting
 - [ ] It is valid to produce only one ticket if the work cannot be cleanly parallelized
 - [ ] No ticket proposes modifying protected files (`.github/scripts/*`, `.github/prompts/*`, `.claude/settings.json`, `.aignore`, `biome.json`)
-- [ ] Every task has a nature tag: `[code]` or `[infra]`
+- [ ] Every task has a nature tag and kebab-case short title: `[code, short-title]` or `[infra, short-title]`
+- [ ] Every short title is kebab-case, with articles (a/an/the) and punctuation removed
 - [ ] Every file in "Files owned" has an operation tag: `(create)`, `(modify)`, or `(delete)`
 - [ ] Every ticket has a Constraints section (can be empty if none apply)
 - [ ] Every Constraints entry applies to every task in the ticket — no entry references another ticket, references a file created only by a later task in this ticket, or scopes itself to a specific task's ordering
@@ -345,9 +346,13 @@ Before outputting the plan, verify:
 
 **Tasks** within a ticket are atomic units of work done one at a time in sequence. Each task should be a single, focused unit of work that a headless AI agent can implement in one cycle. If a task requires touching more than 2-3 files or involves multiple unrelated concerns, split it. If two adjacent tasks always touch only the same file, consider merging them.
 
-**Task nature tags** indicate the type of work:
-- `[code]` — application code: business logic, API routes, data models, state management, components, pages, layouts, styling
-- `[infra]` — configuration, environment setup, dependency installation, CI/CD, standalone resource files not yet consumed by application code
+**Task line format:** `N. [tag, short-title] Description...` where:
+- `tag` is `code` or `infra`:
+  - `code` — application code: business logic, API routes, data models, state management, components, pages, layouts, styling
+  - `infra` — configuration, environment setup, dependency installation, CI/CD, standalone resource files not yet consumed by application code
+- `short-title` is a kebab-case identifier derived from the task's purpose. Remove articles (a, an, the) and punctuation, lowercase everything, use hyphens for spaces. Example: "Add a banner at the top" → `add-banner-top`
+
+The `[tag, short-title]` pair is consumed by downstream tooling to deterministically derive test file paths and test runner commands — `tag` selects the runner (`code` → Jest, `infra` → shell script) and `short-title` becomes the filename.
 
 Avoid vague tasks like "implement X" — each task should describe exactly what to build or change. These tasks will be consumed by downstream tooling, so they should be as specific as possible.
 

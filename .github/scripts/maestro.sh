@@ -16,6 +16,9 @@ source .github/scripts/helpers/notify.sh
 
 # FIXME: Blueprint show have tasks with more description. Sometimes they feel a little short and could be interpreted in a different way.
 
+# If implementation fails, send log to agent, review and determine failure
+# If failure is due to backpressure, call agent to fix backpressure, start implementation again
+
 # Settings
 
 LOCK_FILE=".maestro.lock"
@@ -28,9 +31,8 @@ PR_SUMMARY_FILE=".maestro.summary.md"
 
 # Models
 
-export PROJECT_MANAGER_MODEL="claude-opus-4-7" # Planning
-export STAFF_DEVELOPER_MODEL="claude-opus-4-6" # Backpressure
-export SENIOR_DEVELOPER_MODEL="qwen/qwen3.5-35b-a3b" # Ticket Breakdown
+export STAFF_DEVELOPER_MODEL="claude-opus-4-7" # Planning
+export SENIOR_DEVELOPER_MODEL="claude-opus-4-6" # Backpressure
 export MIDLEVEL_DEVELOPER_MODEL="google/gemma-4-26b-a4b" # PR Descriptions
 export JUNIOR_DEVELOPER_MODEL="minimax/MiniMax-M2.7" # Implementation
 
@@ -52,7 +54,6 @@ if [ -f .env ]; then
     fi
 else
     MODEL_VARS=(
-        "PROJECT_MANAGER_MODEL"
         "STAFF_DEVELOPER_MODEL"
         "SENIOR_DEVELOPER_MODEL"
         "MIDLEVEL_DEVELOPER_MODEL"
@@ -203,7 +204,7 @@ while $MISSING_BLUEPRINT; do
     else
         log INFO "Generating implementation plan..."
         # FIXME: Change this into a pure prompt rather than a skill
-        TREE_LEVELS=$(prompt "/blueprint $*" --allowedTools "Read,Glob,Grep,Write($BLUEPRINT_FILE),Edit($BLUEPRINT_FILE),Agent" --model "$PROJECT_MANAGER_MODEL")
+        TREE_LEVELS=$(prompt "/blueprint $*" --allowedTools "Read,Glob,Grep,Write($BLUEPRINT_FILE),Edit($BLUEPRINT_FILE),Agent" --model "$STAFF_DEVELOPER_MODEL")
 
         # FIXME: Should tree levels be written by the skill using a script to avoid divergence?
 
@@ -278,16 +279,9 @@ while IFS= read -r LEVEL <&3; do
     rm -f "$PR_TSV_FILE"
     for TICKET_NUM in $(echo "$LEVEL" | tr ',' '\n' | grep .); do
         bash .github/scripts/ticketmaster/checkout.sh "$TICKET_NUM"
-
-        TICKETMASTER_PROMPT=$(bash .github/scripts/ticketmaster/get-prompt.sh "$BLUEPRINT_FILE" "$TICKET_NUM")
-        prompt "$TICKETMASTER_PROMPT" --allowedTools "Write(PRD.md),Edit(PRD.md)" --model "$SENIOR_DEVELOPER_MODEL" || true
-
-        mkdir -p "$FOLDER_NAME"
-        log INFO "Backing up prompt to \"$FOLDER_NAME..."
+        bash .github/scripts/ticketmaster/generate-prd.sh "$BLUEPRINT_FILE" "$TICKET_NUM"
 
         TICKET_TITLE=$(awk -v n="$TICKET_NUM" '$0 ~ "^#### Ticket " n ":" { sub(/^#### Ticket [0-9]+: */, ""); print; exit }' "$BLUEPRINT_FILE")
-        echo "$TICKETMASTER_PROMPT" > "$FOLDER_NAME/ticketmaster-$TICKET_NUM.md"
-
         bash .github/scripts/ticketmaster/push-changes.sh "$TICKET_NUM" "$TICKET_TITLE"
     done
 

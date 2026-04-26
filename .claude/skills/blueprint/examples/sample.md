@@ -65,7 +65,7 @@ all tickets in its `depends_on` list are complete. Siblings under the same paren
 - `src/timer.js` (create)
 
 **Tasks:**
-1. [code] Create `src/timer.js` as an ES module exporting a `PomodoroTimer` class (or equivalent factory) with the following interface:
+1. [code, create-timer-module] Create `src/timer.js` as an ES module exporting a `PomodoroTimer` class (or equivalent factory) with the following interface:
    - Constructor accepts `durationSeconds: number` (default `1500` for 25 minutes) and an `onTick` callback `(remainingSeconds: number) => void`
    - `start()` — begins or resumes the countdown, calling `onTick` every second with the remaining seconds. If already running, no-op
    - `pause()` — pauses the countdown, preserving the remaining time. If not running, no-op
@@ -94,12 +94,12 @@ all tickets in its `depends_on` list are complete. Siblings under the same paren
 - `tests/unit/homepage.test.ts` (delete)
 
 **Tasks:**
-1. [infra] Delete `tests/unit/homepage.test.ts` — this E2E test asserts "Hello World" text which will no longer exist after the homepage is replaced by the Pomodoro timer. Verify the file no longer exists on disk and that no other source files import or reference it
-2. [code] Create `src/app.js` as an ES module — imports `PomodoroTimer` from `./timer.js` at the top. On `DOMContentLoaded`, selects elements by `data-testid` attribute. Instantiates `PomodoroTimer` with an `onTick` callback that formats remaining seconds as `MM:SS` using `Math.floor(remaining / 60)` and `remaining % 60`, zero-padded, and updates `[data-testid="timer-display"]` text content. Wire button click handlers:
+1. [infra, delete-homepage-test] Delete `tests/unit/homepage.test.ts` — this E2E test asserts "Hello World" text which will no longer exist after the homepage is replaced by the Pomodoro timer. Verify the file no longer exists on disk and that no other source files import or reference it
+2. [code, create-app-module] Create `src/app.js` as an ES module — imports `PomodoroTimer` from `./timer.js` at the top. On `DOMContentLoaded`, selects elements by `data-testid` attribute. Instantiates `PomodoroTimer` with an `onTick` callback that formats remaining seconds as `MM:SS` using `Math.floor(remaining / 60)` and `remaining % 60`, zero-padded, and updates `[data-testid="timer-display"]` text content. Wire button click handlers:
    - **Start button click**: calls `timer.start()`
    - **Pause button click**: calls `timer.pause()`
    - **Reset button click**: calls `timer.reset()`
-3. [code] Modify `src/index.html` — replace the `<body>` content with the Pomodoro timer layout:
+3. [code, modify-index-html] Modify `src/index.html` ��� replace the `<body>` content with the Pomodoro timer layout:
    - Page title: `<h1 data-testid="page-title">Pomodoro Timer</h1>`
    - Timer display: `<div data-testid="timer-display">25:00</div>` — large, centered text showing `MM:SS`
    - Three buttons in a row:
@@ -109,7 +109,7 @@ all tickets in its `depends_on` list are complete. Siblings under the same paren
    - Add `<script type="module" src="app.js"></script>` before `</body>` (the `type="module"` is required so `app.js` can import from `./timer.js`)
    - Keep the existing `<link rel="stylesheet" href="style.css" />` in the head
    - Keep the `<title>` as "Pomodoro Timer"
-4. [code] Modify `src/style.css` — add styles for the timer UI:
+4. [code, modify-styles] Modify `src/style.css` — add styles for the timer UI:
    - Center the content vertically and horizontally on the page
    - `[data-testid="timer-display"]`: large font size (at least 4rem), monospace font, centered
    - Buttons: visually distinct, at least 44px tall for accessibility, spaced evenly, with hover/active states

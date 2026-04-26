@@ -63,6 +63,7 @@ while true; do
         log SUCCESS "🎉 No incomplete tasks found in PRD.md. Cleaning up..."
 
         rm -rf MEMORY.md
+        mkdir -p "$ARCHIVE_FOLDER"
 
         PRD_TITLE=$(head -1 PRD.md | sed -E 's/^#+ (PRD: )?//')
         PRD_FILENAME=$(echo "$PRD_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed -E 's/-+/-/g' | sed -E 's/^-|-$//g')
@@ -76,7 +77,6 @@ while true; do
         done
 
         log INFO "Archiving PRD to $ARCHIVE_PATH..."
-        mkdir -p "$ARCHIVE_FOLDER"
         mv PRD.md "$ARCHIVE_PATH"
 
         git add .
