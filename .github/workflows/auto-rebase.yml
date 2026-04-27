@@ -1,0 +1,76 @@
+name: Auto-resolve append-only conflicts for .agent-ledger.jsonl
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  update-open-prs:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge base into open PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: |
+          OPEN_PRS=$(gh pr list --base "$BASE_BRANCH" --state open --json number,headRefName --jq '.[] | "\(.number)\t\(.headRefName)"')
+
+          if [ -z "$OPEN_PRS" ]; then
+            echo "No open PRs targeting $BASE_BRANCH. Nothing to do."
+            exit 0
+          fi
+
+          echo "$OPEN_PRS" | while IFS=$'\t' read -r PR_NUMBER HEAD_BRANCH; do
+            echo "::group::PR #$PR_NUMBER ($HEAD_BRANCH)"
+
+            git fetch origin "$HEAD_BRANCH"
+            git checkout "$HEAD_BRANCH"
+            git reset --hard "origin/$HEAD_BRANCH"
+
+            if git merge "origin/$BASE_BRANCH" --no-edit; then
+              echo "Clean merge — pushing."
+              git push origin "$HEAD_BRANCH"
+            else
+              CONFLICTED=$(git diff --name-only --diff-filter=U)
+              LEDGER_ONLY=true
+              while IFS= read -r file; do
+                if [ "$file" != ".agent-ledger.jsonl" ]; then
+                  LEDGER_ONLY=false
+                  break
+                fi
+              done <<< "$CONFLICTED"
+
+              if $LEDGER_ONLY && [ -n "$CONFLICTED" ]; then
+                echo "Conflict is only in .agent-ledger.jsonl — resolving with union merge."
+                MERGE_BASE=$(git merge-base HEAD "origin/$BASE_BRANCH")
+                git show "$MERGE_BASE:.agent-ledger.jsonl" > /tmp/base-ledger.jsonl 2>/dev/null || touch /tmp/base-ledger.jsonl
+                git show "HEAD:.agent-ledger.jsonl" > /tmp/ours-ledger.jsonl
+                git show "origin/$BASE_BRANCH:.agent-ledger.jsonl" > /tmp/theirs-ledger.jsonl
+                git merge-file --union /tmp/ours-ledger.jsonl /tmp/base-ledger.jsonl /tmp/theirs-ledger.jsonl || true
+                cp /tmp/ours-ledger.jsonl .agent-ledger.jsonl
+                git add .agent-ledger.jsonl
+                git -c core.editor=true merge --continue
+                git push origin "$HEAD_BRANCH"
+              else
+                echo "::error::PR #$PR_NUMBER ($HEAD_BRANCH) has non-ledger conflicts — skipping."
+                git merge --abort
+              fi
+            fi
+
+            echo "::endgroup::"
+          done

@@ -46,7 +46,7 @@ restore_backpressure() {
         local file_path="${COMMAND##* }"
 
         if [[ ! "$file_path" == *.* ]]; then
-            log INFO "No file path found in $COMMAND. Skipping restoration..."
+            log INFO "No test file resolvable from '$COMMAND'. Skipping restoration..."
             return 0
         fi
 

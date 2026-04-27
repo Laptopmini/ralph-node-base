@@ -13,7 +13,6 @@ fi
 TICKET="$1"
 DEV_BRANCH="maestro"
 TICKET_BRANCH="prd-${TICKET}"
-REQ_BRANCH="${TICKET_BRANCH}-requirements"
 
 # Helper function to check if a branch exists locally
 has_local_branch() {
@@ -55,8 +54,5 @@ checkout_branch "$DEV_BRANCH"
 
 # Create/checkout workflow branch
 checkout_branch "$TICKET_BRANCH"
-
-# Create/checkout requirements branch
-checkout_branch "$REQ_BRANCH"
 
 log INFO "Now performing within branch $(git branch --show-current)"
