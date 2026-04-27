@@ -27,11 +27,18 @@ summarizer() {
         COMMIT_PREFIX="feat(${TICKET_NUM})"
     fi
 
-    # --- Step 2: Generate the diff ---
+    # --- Step 2: Generate the diff & log ---
     local DIFF_OUTPUT
-    DIFF_OUTPUT=$(git diff "${BASE_BRANCH}..${HEAD_BRANCH}")
+    DIFF_OUTPUT=$(git diff --stat "${BASE_BRANCH}..${HEAD_BRANCH} ':(exclude)*lock.json' ':(exclude).agent-ledger.jsonl'")
     if [[ -z "$DIFF_OUTPUT" ]]; then
         log ERROR "git diff produced no output for ${BASE_BRANCH}..${HEAD_BRANCH}"
+        return 1
+    fi
+
+    local LOG_OUTPUT
+    LOG_OUTPUT=$(git log --pretty=format:"%s" "${BASE_BRANCH}..${HEAD_BRANCH}")
+    if [[ -z "$LOG_OUTPUT" ]]; then
+        log ERROR "git log produced no output for ${BASE_BRANCH}..${HEAD_BRANCH}"
         return 1
     fi
 
@@ -46,9 +53,9 @@ summarizer() {
     TEMPLATE=$(cat "$TEMPLATE_FILE")
 
     # Render placeholders with awk gsub.
-    # DIFF_OUTPUT is injected by splitting at its placeholder to avoid
-    # awk -v newline limitations and gsub corruption of & and \ in diffs.
-    local BEFORE_DIFF AFTER_DIFF
+    # DIFF_OUTPUT and LOG_OUTPUT are injected by splitting at their placeholders
+    # to avoid awk -v newline limitations and gsub corruption of & and \ in diffs.
+    local BEFORE_DIFF BETWEEN_DIFF_LOG AFTER_LOG
     BEFORE_DIFF=$(awk \
         -v head_branch="$HEAD_BRANCH" \
         -v base_branch="$BASE_BRANCH" \
@@ -61,11 +68,25 @@ summarizer() {
             print line
         }' <<< "$TEMPLATE")
 
-    AFTER_DIFF=$(awk \
+    BETWEEN_DIFF_LOG=$(awk \
         -v head_branch="$HEAD_BRANCH" \
         -v base_branch="$BASE_BRANCH" \
         -v commit_prefix="$COMMIT_PREFIX" \
         '/\{\{DIFF_OUTPUT\}\}/{found=1; next}
+        found && /\{\{LOG_OUTPUT\}\}/{exit}
+        found {
+            line = $0
+            gsub(/\{\{HEAD_BRANCH\}\}/, head_branch, line)
+            gsub(/\{\{BASE_BRANCH\}\}/, base_branch, line)
+            gsub(/\{\{COMMIT_PREFIX\}\}/, commit_prefix, line)
+            print line
+        }' <<< "$TEMPLATE")
+
+    AFTER_LOG=$(awk \
+        -v head_branch="$HEAD_BRANCH" \
+        -v base_branch="$BASE_BRANCH" \
+        -v commit_prefix="$COMMIT_PREFIX" \
+        '/\{\{LOG_OUTPUT\}\}/{found=1; next}
         found {
             line = $0
             gsub(/\{\{HEAD_BRANCH\}\}/, head_branch, line)
@@ -75,7 +96,7 @@ summarizer() {
         }' <<< "$TEMPLATE")
 
     local RENDERED
-    RENDERED=$(printf '%s\n%s\n%s' "$BEFORE_DIFF" "$DIFF_OUTPUT" "$AFTER_DIFF")
+    RENDERED=$(printf '%s\n%s\n%s\n%s\n%s' "$BEFORE_DIFF" "$DIFF_OUTPUT" "$BETWEEN_DIFF_LOG" "$LOG_OUTPUT" "$AFTER_LOG")
 
     # --- Step 4: Execute via prompt() ---
     local BODY_FILE="${PR_SUMMARY_FILE:-'.maestro.summary.md'}"
