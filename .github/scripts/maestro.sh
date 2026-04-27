@@ -12,12 +12,7 @@ source .github/scripts/agents/prompt.sh
 source .github/scripts/summarizer.sh
 source .github/scripts/helpers/notify.sh
 
-# FIXME: Ticketmaster seems to be escaping \" rather than just using them
-
-# FIXME: Blueprint show have tasks with more description. Sometimes they feel a little short and could be interpreted in a different way.
-
-# If implementation fails, send log to agent, review and determine failure
-# If failure is due to backpressure, call agent to fix backpressure, start implementation again
+# FIXME: Leverage custom --systemPrompt so that directives can be stronger in Ralph and Repair agents (look at gains from prompt caching through iterations)
 
 # Settings
 
@@ -40,6 +35,7 @@ export JUNIOR_DEVELOPER_MODEL="minimax/MiniMax-M2.7" # Implementation
 
 export REPO_SLUG=$(bash .github/scripts/helpers/repo-slug.sh)
 export PR_SUMMARY_FILE
+export BLUEPRINT_FILE
 
 # Environment variables
 
@@ -203,17 +199,29 @@ while $MISSING_BLUEPRINT; do
         REUSING_EXISTING_PLAN=true
     else
         log INFO "Generating implementation plan..."
-        # FIXME: Change this into a pure prompt rather than a skill
-        TREE_LEVELS=$(prompt "/blueprint $*" --allowedTools "Read,Glob,Grep,Write($BLUEPRINT_FILE),Edit($BLUEPRINT_FILE),Agent" --model "$STAFF_DEVELOPER_MODEL")
+        BLUEPRINT_PROMPT_BODY=$(cat .github/prompts/blueprint.md 2>/dev/null || echo "")
+        if [[ -z "$BLUEPRINT_PROMPT_BODY" ]]; then
+            log ERROR "Blueprint prompt missing at .github/prompts/blueprint.md. Aborting."
+            exit 1
+        fi
 
-        # FIXME: Should tree levels be written by the skill using a script to avoid divergence?
+        BLUEPRINT_PROMPT="$BLUEPRINT_PROMPT_BODY
 
-        if [[ -z "$TREE_LEVELS" ]]; then
-            log WARN "Blueprint agent returned no tree levels. Retrying in 5s..."
+--- HUMAN FEATURE REQUEST ---
+
+$*
+"
+        prompt "$BLUEPRINT_PROMPT" \
+            --allowedTools "Read,Glob,Grep,Write($BLUEPRINT_FILE),Edit($BLUEPRINT_FILE),Write($BLUEPRINT_LEVELS_FILE),Edit($BLUEPRINT_LEVELS_FILE),Agent" \
+            --model "$STAFF_DEVELOPER_MODEL"
+
+        if [[ ! -s "$BLUEPRINT_FILE" || ! -s "$BLUEPRINT_LEVELS_FILE" ]]; then
+            log WARN "Blueprint agent did not produce both artifacts. Retrying in 5s..."
+            rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE"
             sleep 5
             continue
         fi
-        echo "$TREE_LEVELS" > "$BLUEPRINT_LEVELS_FILE"
+        TREE_LEVELS=$(cat "$BLUEPRINT_LEVELS_FILE")
     fi
 
     if command -v code &>/dev/null; then
@@ -276,60 +284,30 @@ while IFS= read -r LEVEL <&3; do
     LEVEL_INDEX=$((LEVEL_INDEX + 1))
 
     log INFO "Generating PRD(s)..."
-    rm -f "$PR_TSV_FILE"
     for TICKET_NUM in $(echo "$LEVEL" | tr ',' '\n' | grep .); do
         bash .github/scripts/ticketmaster/checkout.sh "$TICKET_NUM"
         bash .github/scripts/ticketmaster/generate-prd.sh "$BLUEPRINT_FILE" "$TICKET_NUM"
 
-        TICKET_TITLE=$(awk -v n="$TICKET_NUM" '$0 ~ "^#### Ticket " n ":" { sub(/^#### Ticket [0-9]+: */, ""); print; exit }' "$BLUEPRINT_FILE")
-        bash .github/scripts/ticketmaster/push-changes.sh "$TICKET_NUM" "$TICKET_TITLE"
+        PRD_BRANCH="prd-$TICKET_NUM"
+        if ! git ls-remote --exit-code --heads origin "$PRD_BRANCH" >/dev/null 2>&1; then
+            log ERROR "PRD branch \"$PRD_BRANCH\" does not exist on origin. Ticketmaster failed to create it. Aborting."
+            exit 1
+        fi
+
+        if ! git cat-file -e "$PRD_BRANCH:PRD.md" >/dev/null 2>&1; then
+            log ERROR "PRD.md does not exist in branch '$BRANCH'. Aborting." >&2
+            exit 1
+        fi
+
+        BRANCHES+=$(printf "%s\n" "$PRD_BRANCH")
     done
-
-    EXPECTED_COUNT=$(echo "$LEVEL" | tr ',' '\n' | grep -c .)
-
-    BRANCHES=""
-    if [[ -s "$PR_TSV_FILE" ]]; then
-        BRANCHES=$(grep $'\t' "$PR_TSV_FILE" || true)
-    fi
-
-    ACTUAL_COUNT=0
-    [[ -n "$BRANCHES" ]] && ACTUAL_COUNT=$(echo "$BRANCHES" | grep -c .)
-
-    if [[ "$ACTUAL_COUNT" != "$EXPECTED_COUNT" ]]; then
-        log WARN "Ticketmaster recorded $ACTUAL_COUNT/$EXPECTED_COUNT PR(s) in $PR_TSV_FILE. Reconstructing from gh pr list..."
-        BRANCHES=""
-        for TICKET_NUM in $(echo "$LEVEL" | tr ',' '\n' | grep .); do
-            HEAD="prd-${TICKET_NUM}-requirements"
-            if ! git ls-remote --exit-code --heads origin "$HEAD" >/dev/null 2>&1; then
-                log ERROR "Head branch \"$HEAD\" does not exist on origin. Ticketmaster failed to create it. Aborting."
-                exit 1
-            fi              
-            PR_NUMBER=$(gh pr list -R "$REPO_SLUG" --head "$HEAD" --state open --json number --jq '.[0].number' 2>/dev/null || true)
-            if [[ -z "$PR_NUMBER" ]]; then
-                log ERROR "No open PR found for head branch \"$HEAD\". Aborting."
-                exit 1
-            fi
-            [[ -n "$BRANCHES" ]] && BRANCHES+=$'\n'
-            BRANCHES+="prd-${TICKET_NUM}"$'\t'"$PR_NUMBER"
-        done
-        ACTUAL_COUNT=$(echo "$BRANCHES" | grep -c .)
-    fi
-
-    if [[ -z "$BRANCHES" ]] || [[ "$ACTUAL_COUNT" != "$EXPECTED_COUNT" ]]; then
-        log ERROR "Ticketmaster returned $ACTUAL_COUNT branch(es) for level \"$LEVEL\" but $EXPECTED_COUNT were expected. Aborting."
-        exit 1
-    fi
-
     log SUCCESS "Finished creating branches and PRDs for current level!"
-
-    review_pull_requests "$BRANCHES"
 
     log INFO "Generating backpressure..."
     rm -f "$PR_TSV_FILE"
-    while IFS=$'\t' read -r BASE_BRANCH_NAME _PR_NUMBER <&3; do
+    while read -r BASE_BRANCH_NAME; do
         BACKPRESSURE_BRANCH_NAME="$BASE_BRANCH_NAME-backpressure"
 
-        # Fail-fast: if any backpressure loop fails, abort the entire run
         git checkout "$BASE_BRANCH_NAME" && git pull
         git checkout -b "$BACKPRESSURE_BRANCH_NAME"
         npm i && npm run backpressure
@@ -364,8 +342,9 @@ while IFS= read -r LEVEL <&3; do
     log INFO "Proceeding with implementation..."
     rm -f "$PR_TSV_FILE"
     while IFS=$'\t' read -r BASE_BRANCH_NAME _PR_NUMBER <&3; do
-        # Fail-fast: if any ralph loop fails, abort the entire run
         git checkout "$BASE_BRANCH_NAME" && git pull
+
+        export MAESTRO_TICKET_NUM="${BASE_BRANCH_NAME#prd-}"
         npm i && npm run ralph -- "$FOLDER_NAME"
         git push -u origin "$BASE_BRANCH_NAME"
 
@@ -373,6 +352,7 @@ while IFS= read -r LEVEL <&3; do
 
         log SUCCESS "Finished implementation for \"$BASE_BRANCH_NAME\"!"
     done 3<<< "$BACKPRESSURE_BRANCHES"
+    unset MAESTRO_TICKET_NUM
 
     IMPLEMENTATION_BRANCHES=""
     if [[ -s "$PR_TSV_FILE" ]]; then
@@ -407,8 +387,5 @@ git push -u origin maestro
 log INFO "Opening final PR..."
 summarizer maestro main
 view_pull_requests
-
-log INFO "Switching back to main..."
-git checkout main
 
 log SUCCESS "Done! Your requested implementation is ready to be reviewed and merged!"

@@ -4,8 +4,14 @@
 # GENERATE-PRD: Deterministically convert a blueprint ticket into PRD.md.
 # Usage: ./generate-prd.sh <blueprint-file> <ticket-number>
 #
-# Replaces the previous LLM-based ticketmaster. Parses the blueprint's
-# [tag, short-title] annotations to derive test commands without ambiguity.
+# Task-line contract (per blueprint line):
+#   N. [<tag>, <slug>] description...                # legacy; ext defaults below
+#   N. [<tag>, <slug>, <ext>] description...         # explicit extension
+#
+# Tags:
+#   infra → bash tests/scripts/<slug>.sh             (ext ignored)
+#   code  → npx jest tests/unit/<slug>.test.<ext>    (ext defaults to tsx)
+#
 # ==============================================================================
 
 set -euo pipefail
@@ -40,7 +46,6 @@ if [ -z "$TICKET_TITLE" ]; then
 fi
 
 # Extract numbered task lines from the ticket section.
-# Task lines match: N. [tag, short-title] description...
 TASKS=$(awk -v num="$TICKET_NUM" '
     BEGIN { found = 0 }
     /^#### Ticket [0-9]+/ {
@@ -57,25 +62,60 @@ if [ -z "$TASKS" ]; then
 fi
 
 # Build PRD content
-{
+PRD_CONTENT=$(
     printf '# PRD: %s\n\n## Tasks\n' "$TICKET_TITLE"
 
     while IFS= read -r line; do
-        # Parse: N. [tag, short-title] description...
-        tag=$(printf '%s' "$line" | sed -E 's/^[0-9]+\. \[([a-z]+), .*/\1/')
-        short_title=$(printf '%s' "$line" | sed -E 's/^[0-9]+\. \[[a-z]+, ([a-z0-9-]+)\] .*/\1/')
-        description=$(printf '%s' "$line" | sed -E 's/^[0-9]+\. \[[a-z]+, [a-z0-9-]+\] //')
+        [[ -z "$line" ]] && continue
 
-        if [ "$tag" = "infra" ]; then
-            test_cmd="bash tests/scripts/${short_title}.sh"
+        # Match [tag, slug, ext] or [tag, slug].
+        if [[ "$line" =~ ^[0-9]+\.\ \[([a-z]+),\ ([a-z0-9-]+),\ ([a-z]+)\]\ (.+)$ ]]; then
+            tag="${BASH_REMATCH[1]}"
+            slug="${BASH_REMATCH[2]}"
+            ext="${BASH_REMATCH[3]}"
+            description="${BASH_REMATCH[4]}"
+        elif [[ "$line" =~ ^[0-9]+\.\ \[([a-z]+),\ ([a-z0-9-]+)\]\ (.+)$ ]]; then
+            tag="${BASH_REMATCH[1]}"
+            slug="${BASH_REMATCH[2]}"
+            ext=""
+            description="${BASH_REMATCH[3]}"
         else
-            test_cmd="npx jest tests/unit/${short_title}.test.tsx"
+            log ERROR "Malformed task line (expected '\\d+. [tag, slug] desc' or '[tag, slug, ext] desc'):" >&2
+            log ERROR "  $line" >&2
+            exit 1
         fi
 
-        printf '\n- [ ] %s `[test: %s]`' "$description" "$test_cmd"
+        case "$tag" in
+            infra)
+                test_cmd="bash tests/scripts/${slug}.sh"
+                test_path="tests/scripts/${slug}.sh"
+                ;;
+            code)
+                ext_resolved="${ext:-tsx}" # Default ext to tsx when missing
+                if [[ "$ext_resolved" != "ts" && "$ext_resolved" != "tsx" ]]; then
+                    log ERROR "Unsupported ext '$ext_resolved' for task: $line" >&2
+                    exit 1
+                fi
+                test_cmd="npx jest tests/unit/${slug}.test.${ext_resolved}"
+                test_path="tests/unit/${slug}.test.${ext_resolved}"
+                ;;
+            *)
+                log ERROR "Unsupported tag '$tag' (expected 'infra' or 'code') in: $line" >&2
+                exit 1
+                ;;
+        esac
+
+        printf '\n%s' "- [ ] ${description} \`[test: ${test_cmd}]\`"
     done <<< "$TASKS"
 
     printf '\n'
-} > PRD.md
+)
+
+printf '%s\n' "$PRD_CONTENT" > PRD.md
+
+# Perform Git operations
+git add PRD.md
+git commit -m "feat($TICKET_NUMBER): Created PRD for $TICKET_TITLE"
+git push -u origin "$(git branch --show-current)"
 
 log SUCCESS "Generated PRD.md for Ticket $TICKET_NUM: $TICKET_TITLE"
