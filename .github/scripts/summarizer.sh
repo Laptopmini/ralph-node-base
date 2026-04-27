@@ -100,7 +100,7 @@ summarizer() {
 
     # --- Step 4: Execute via prompt() ---
     local BODY_FILE="${PR_SUMMARY_FILE:-'.maestro.summary.md'}"
-    prompt "$RENDERED" --allowedTools "Write($BODY_FILE),Edit($BODY_FILE)" --model "${MIDLEVEL_DEVELOPER_MODEL:-claude-haiku-4-5-20251001}"
+    prompt "$RENDERED" --allowedTools "Write($BODY_FILE),Edit($BODY_FILE)" --model "${INTERN_DEVELOPER_MODEL:-claude-haiku-4-5-20251001}"
 
     # --- Step 5: Extract title and prepare PR body ---
     if [[ ! -s "$BODY_FILE" ]]; then

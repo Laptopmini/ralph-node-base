@@ -63,7 +63,7 @@ $ARCHIVE_FOLDER
     REVIEW_OUTPUT=$(prompt "$REVIEW_PROMPT" \
         --allowedTools "Read,Edit,Write,Glob,Grep,Bash" \
         --disallowedTools "Bash(git:*),Bash(npm install*)" \
-        --model "${SENIOR_DEVELOPER_MODEL:-claude-opus-4-6}")
+        --model "${STAFF_DEVELOPER_MODEL:-claude-opus-4-6}")
     local REVIEW_EXIT=$?
     set -e
 

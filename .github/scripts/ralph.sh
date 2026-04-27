@@ -48,6 +48,7 @@ log WARN "Starting Ralph Loop for at most $MAX_LOOPS iterations..."
 ERROR_FEEDBACK=""
 LOOP_COUNTER=0
 TOTAL_LOOPS=0
+TOTAL_REPAIRS=0
 PREVIOUS_TASK_VALIDATION=()
 declare -A PREVIOUS_TASK_VALIDATION_LOOKUP
 
@@ -144,7 +145,7 @@ $REPAIR_BLUEPRINT_CONTEXT
         REPAIR_OUTPUT=$(prompt "$REPAIR_PROMPT" \
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash" \
             --disallowedTools "Bash(git:*),Bash(npm test*),Bash(npm run test*),Bash($TYPE_CHECK_CMD*),Bash(npx jest*),Bash(npx playwright*),Bash(npx tsc*)" \
-            --model "${SENIOR_DEVELOPER_MODEL:-claude-opus-4-6}")
+            --model "${STAFF_DEVELOPER_MODEL:-claude-opus-4-6}")
         REPAIR_EXIT=$?
         set -e
 
@@ -163,6 +164,7 @@ $REPAIR_BLUEPRINT_CONTEXT
             code-fix)
                 log INFO "Repair patched code directly. Resetting loop counter and error feedback."
                 TOTAL_LOOPS=$((TOTAL_LOOPS+LOOP_COUNTER))
+                TOTAL_REPAIRS=$((TOTAL_REPAIRS+1))
                 LOOP_COUNTER=0
                 ERROR_FEEDBACK=""
                 continue
@@ -183,6 +185,7 @@ $REPAIR_BLUEPRINT_CONTEXT
                 git commit -m "fix(ai): Repair backpressure for stuck task" || true
                 log INFO "Backpressure patched. Resetting loop counter and error feedback."
                 TOTAL_LOOPS=$((TOTAL_LOOPS+LOOP_COUNTER))
+                TOTAL_REPAIRS=$((TOTAL_REPAIRS+1))
                 LOOP_COUNTER=0
                 ERROR_FEEDBACK=""
                 continue
@@ -410,4 +413,4 @@ done
 
 remove_backpressure
 
-log INFO "👋 Ralph Loop ended after $TOTAL_LOOPS successful iteration(s)!"
+log INFO "👋 Ralph Loop ended after $TOTAL_LOOPS iteration(s), including $TOTAL_REPAIRS repair(s)!"

@@ -28,10 +28,11 @@ PR_SUMMARY_FILE=".maestro.summary.md"
 
 # Models
 
-export STAFF_DEVELOPER_MODEL="claude-opus-4-7" # Planning
-export SENIOR_DEVELOPER_MODEL="claude-opus-4-6" # Backpressure & Review
-export MIDLEVEL_DEVELOPER_MODEL="google/gemma-4-26b-a4b" # PR Descriptions
+export PROJECT_MANAGER_MODEL="claude-opus-4-7" # Planning
+export STAFF_DEVELOPER_MODEL="claude-opus-4-6" # Supervising
+export SENIOR_DEVELOPER_MODEL="minimax/MiniMax-M2.7" # Backpressure
 export JUNIOR_DEVELOPER_MODEL="minimax/MiniMax-M2.7" # Implementation
+export INTERN_DEVELOPER_MODEL="google/gemma-4-26b-a4b" # Writing Pull Requests
 
 # Variables
 
@@ -52,10 +53,11 @@ if [ -f .env ]; then
     fi
 else
     MODEL_VARS=(
+        "PROJECT_MANAGER_MODEL"
         "STAFF_DEVELOPER_MODEL"
         "SENIOR_DEVELOPER_MODEL"
-        "MIDLEVEL_DEVELOPER_MODEL"
         "JUNIOR_DEVELOPER_MODEL"
+        "INTERN_DEVELOPER_MODEL"
     )
 
     for var_name in "${MODEL_VARS[@]}"; do
@@ -213,7 +215,7 @@ $*
 "
         prompt "$BLUEPRINT_PROMPT" \
             --allowedTools "Read,Glob,Grep,Write($BLUEPRINT_FILE),Edit($BLUEPRINT_FILE),Write($BLUEPRINT_LEVELS_FILE),Edit($BLUEPRINT_LEVELS_FILE),Agent" \
-            --model "$STAFF_DEVELOPER_MODEL"
+            --model "$PROJECT_MANAGER_MODEL"
 
         if [[ ! -s "$BLUEPRINT_FILE" || ! -s "$BLUEPRINT_LEVELS_FILE" ]]; then
             log WARN "Blueprint agent did not produce both artifacts. Retrying in 5s..."
@@ -319,7 +321,7 @@ while IFS= read -r LEVEL <&3; do
         summarizer "$BACKPRESSURE_BRANCH_NAME" "$BASE_BRANCH_NAME"
 
         log SUCCESS "Generated backpressure for \"$BASE_BRANCH_NAME\"!"
-    done 3<<< "$BRANCHES"
+    done 3<<< "${BRANCHES%$'\n'}"
 
     BACKPRESSURE_BRANCHES=""
     if [[ -s "$PR_TSV_FILE" ]]; then
