@@ -115,7 +115,7 @@ printf '%s\n' "$PRD_CONTENT" > PRD.md
 
 # Perform Git operations
 git add PRD.md
-git commit -m "feat($TICKET_NUMBER): Created PRD for $TICKET_TITLE"
+git commit -m "feat($TICKET_NUM): Created PRD for $TICKET_TITLE"
 git push -u origin "$(git branch --show-current)"
 
 log SUCCESS "Generated PRD.md for Ticket $TICKET_NUM: $TICKET_TITLE"
