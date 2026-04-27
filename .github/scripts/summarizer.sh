@@ -29,7 +29,7 @@ summarizer() {
 
     # --- Step 2: Generate the diff & log ---
     local DIFF_OUTPUT
-    DIFF_OUTPUT=$(git diff --stat "${BASE_BRANCH}..${HEAD_BRANCH} ':(exclude)*lock.json' ':(exclude).agent-ledger.jsonl'")
+    DIFF_OUTPUT=$(git diff --stat "${BASE_BRANCH}..${HEAD_BRANCH}" ':(exclude)*lock.json' ':(exclude).agent-ledger.jsonl')
     if [[ -z "$DIFF_OUTPUT" ]]; then
         log ERROR "git diff produced no output for ${BASE_BRANCH}..${HEAD_BRANCH}"
         return 1
