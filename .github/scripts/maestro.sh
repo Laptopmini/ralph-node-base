@@ -282,6 +282,7 @@ LEVEL_INDEX=0
 while IFS= read -r LEVEL <&3; do
     log INFO "Beginning level \"$LEVEL\"..."
     LEVEL_INDEX=$((LEVEL_INDEX + 1))
+    BRANCHES=""
 
     log INFO "Generating PRD(s)..."
     for TICKET_NUM in $(echo "$LEVEL" | tr ',' '\n' | grep .); do
@@ -305,7 +306,7 @@ while IFS= read -r LEVEL <&3; do
 
     log INFO "Generating backpressure..."
     rm -f "$PR_TSV_FILE"
-    while read -r BASE_BRANCH_NAME; do
+    while read -r BASE_BRANCH_NAME <&3; do
         BACKPRESSURE_BRANCH_NAME="$BASE_BRANCH_NAME-backpressure"
 
         git checkout "$BASE_BRANCH_NAME" && git pull
