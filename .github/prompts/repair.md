@@ -30,15 +30,12 @@ The orchestrator will re-run the validation immediately. If it passes, the loop 
 
 ## Case B — backpressure bug
 
-The test is wrong: it encodes an assumption that contradicts the PRD or blueprint, asserts on something that cannot be implemented as specified, or relies on broken module mocking. Do NOT touch application code. Instead emit a unified diff against the test file (or its support modules under `tests/__mocks__` / `tests/helpers/` for example) and end with:
+The test is wrong: it encodes an assumption that contradicts the PRD or blueprint, asserts on something that cannot be implemented as specified, or relies on broken module mocking. Do NOT touch application code. Edit the test file (or its support modules under `tests/__mocks__` / `tests/helpers/` for example) directly using Read/Edit/Write. After editing, re-inspect the patched files to confirm your fix is correct. Then output:
 
 <verdict>backpressure-bug</verdict>
-<diff>
-*** unified diff against tests/... ***
-</diff>
 <summary>One sentence describing why the test was wrong.</summary>
 
-The orchestrator will apply the diff with `git apply`, reset the loop counter, and resume.
+The orchestrator will commit your edits, reset the loop counter, and resume.
 
 ## Case C — unrecoverable
 

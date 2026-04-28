@@ -14,7 +14,7 @@ source .github/scripts/helpers/isolator.sh
 # Settings
 
 LOCK_FILE=".ralph.lock"
-MAX_LOOPS=10 # This is the maximum number of iterations per task
+MAX_LOOPS=5 # This is the maximum number of iterations per task before supervisor intervention
 TYPE_CHECK_CMD="npm run check-types"
 UNIT_TEST_CMD="npx jest --silent --no-verbose"
 LINT_TEST_CMD="npm run lint"
@@ -170,18 +170,11 @@ $REPAIR_BLUEPRINT_CONTEXT
                 continue
                 ;;
             backpressure-bug)
-                REPAIR_DIFF=$(echo "$REPAIR_OUTPUT" | awk '/<diff>/{flag=1; next} /<\/diff>/{flag=0} flag')
-                if [[ -z "$REPAIR_DIFF" ]]; then
-                    log ERROR "⚠️ Repair declared backpressure-bug but emitted no <diff> body. Aborting."
-                    exit 1
-                fi
-                if ! echo "$REPAIR_DIFF" | git apply --check 2>/dev/null; then
-                    log ERROR "⚠️ Repair diff failed git apply --check. Aborting."
-                    echo "$REPAIR_DIFF" | head -40 >&2
-                    exit 1
-                fi
-                echo "$REPAIR_DIFF" | git apply
                 git add .
+                if git diff --cached --quiet; then
+                    log ERROR "⚠️ Repair declared backpressure-bug but made no file changes. Aborting."
+                    exit 1
+                fi
                 git commit -m "fix(ai): Repair backpressure for stuck task" || true
                 log INFO "Backpressure patched. Resetting loop counter and error feedback."
                 TOTAL_LOOPS=$((TOTAL_LOOPS+LOOP_COUNTER))
