@@ -75,16 +75,15 @@ For each dimension that applies, give a **name** and a **concrete value**. If yo
 
 > One-paragraph summary of the ticket's intent.
 
-**Constraints:**
-- bullet list — each constraint is a hard rule the JUNIOR must obey.
-
-**Files owned:**
-- path/to/file (create|modify|delete)
-
 **Tasks:**
 1. [<tag>, <slug>, <ext>] description...
 2. [<tag>, <slug>, <ext>] description...
 ```
+
+> **Do not emit `Constraints` or `Files owned` blocks.** A downstream PRD generator hands the JUNIOR only the task lines (plus the ticket title and summary), so anything emitted in those blocks is wasted tokens for the human reviewer and invisible to the agent that does the work. You MUST still reason about both during planning — they're how you guarantee the plan is sound — but bake the conclusions in elsewhere:
+>
+> - **Cross-task constraints** (e.g. "use Tailwind v3 not v4", "all asset URLs go through `withBasePath`", "this ticket uses jsdom") get inlined into the relevant task's description as a concrete instruction. If a constraint applies to *every* task in a ticket, repeat it in each task description that needs it — duplication is fine; the JUNIOR only sees one task at a time.
+> - **File ownership** is implicit in the exact paths each task names. Before finalizing, mentally walk every ticket and confirm no two tickets create or modify the same file. Do not emit the audit; just enforce it.
 
 ## Task-line contract (CRITICAL)
 
@@ -128,15 +127,34 @@ Every file named in a task's description must be produced by something that runs
 
 If none of those is true, reorder the tasks, add a `depends_on`, or merge the two tasks into one. The JUNIOR only sees tasks up to and including the current one — it cannot know a later task will create the file, so any file named in the current task's description will be created now if it doesn't yet exist on disk.
 
-## Constraint-scope rules
+## Forward-reference rule
 
-A ticket's `Constraints` block must state guardrails that apply equally to *every* task in that ticket. Constraints are read by the JUNIOR on every cycle, including while the first task runs, so any forward-looking reference becomes a license for the agent to start work it should not yet be doing. Do not reference:
+A task must not name a file that a later task (in any ticket) will create — the JUNIOR will create any missing file it sees referenced, breaking ownership. If a task needs to mention such a file, reorder the tasks, add a `depends_on`, or merge the two tasks into one.
 
-- Other tickets by number (e.g. "Ticket 1 files are read-only").
-- Files that a later task in this same ticket will create — they don't exist yet when early tasks run.
-- A specific task's ordering, dependencies, or internals within the ticket.
+## Decision-coverage rule (CRITICAL — first-pass quality)
 
-Anything task-specific, time-scoped, or file-specific belongs in that task's description, not in Constraints. The same forward-reference rule applies to task descriptions themselves: a task must not name a file that a later task (in any ticket) will create, because the JUNIOR will create any missing file it sees referenced.
+The Design Intent section is contraband unless its decisions land in tasks. The JUNIOR never sees Design Intent — it sees one task description at a time. So every named decision in Design Intent must satisfy **both** of these, on the first pass:
+
+1. **Defined as an artifact:** a foundation task creates a concrete, importable thing — a CSS variable, a Tailwind config key, an exported constant, a motion preset module, an error class, a formatter, an SVG component, a copy string in a content module, etc. Adjectives in prose do not count.
+2. **Consumed by name:** at least one downstream task references the artifact by its exact name (variable name, class name, exported identifier, Tailwind utility, etc.).
+
+If a decision can't satisfy both, drop it from Design Intent — don't leave aspirational language that won't survive into the build. Concretely watch for:
+
+- **Tokens declared but never used** (e.g. a `--radius-pill` in CSS that no component class consumes). Either consume it or delete the token.
+- **Named animations / springs / easings** without a foundation module. Always create `src/lib/motion.ts` (or equivalent) exporting each named preset (`tiltOnHover`, `parallaxFloat`, `bannerEntrance`, etc.) with concrete spring/easing/duration values, and have downstream component tasks import the preset by name. Never let downstream tasks re-derive spring constants — they will drift.
+- **Layout rhythm rules** ("sections separated by `<Sunburst />`", "max-width 1100px", "py-24 vertical padding") — these only land if a task explicitly inserts the divider component or sets the wrapper's class. The page-composition ticket is usually where this lives; verify it.
+- **Exemplar copy strings** — every motto/tagline/section-label string from Design Intent must be exported from the content module under a stable key, and every component task that renders that copy must reference the key, not re-type the string.
+- **Numeric ranges** ("translateY -40px to +40px") — implement the full range, not a one-sided shortcut.
+
+### Pre-write self-check
+
+Before writing the blueprint to disk, do this internally (do not emit it):
+
+1. List every named decision in your Design Intent: tokens, fonts, motifs, animations, layout rules, motto strings, structural conventions.
+2. For each, name (a) the foundation task that defines it, (b) the downstream task(s) that consume it by name.
+3. If any line in (1) lacks an entry in (2a) or (2b), revise the tickets *before* writing — add the missing task, drop the unused token, or fold a duplicate.
+
+This is the primary mechanism for first-pass correctness. The audit subagent at the end is a backstop, not the plan.
 
 ## Design foundation rule
 
@@ -166,31 +184,38 @@ All downstream tickets declare `depends_on` the foundation ticket so they consum
 - Every ticket that produces user-visible output (UI markup, CLI text, API response shape, log/metric format, public library surface) must source its concrete choices from the Design Intent tokens encoded by the foundation ticket. Downstream tickets do not re-decide palette, voice, error envelope, exit-code semantics, etc. — they import.
 - Tests are written by a separate backpressure phase. Do NOT include "write tests for X" tasks. Do NOT add `[test: ...]` annotations — the parser injects them.
 - Do NOT propose tasks that modify protected files: `.github/scripts/**`, `.github/prompts/**`, `.claude/settings.json`, `.aignore`, `biome.json`.
-- If the feature requires a new Jest config (e.g. `jsdom` environment, `moduleNameMapper`), call it out under the foundation ticket's **Constraints** as a config requirement — backpressure will mirror it. Do NOT have backpressure invent it.
+- If the feature requires a new Jest config (e.g. `jsdom` environment, `moduleNameMapper`), inline the requirement into the foundation task that updates `jest.config.mjs` so backpressure mirrors it. Do NOT have backpressure invent it.
 - For Next.js + globals.css imports, ALWAYS include a foundation task that creates an ambient module declaration (`types/css.d.ts`) so `tsc --noEmit` doesn't trip on `import './globals.css'`. This is a known recurring gotcha.
 - For any image referenced via `next/image`, ALWAYS proxy through a `withBasePath` helper if `basePath` is configured.
 
-# REVIEW EMBEDDED COMMANDS
+# BACKSTOP REVIEW
 
-After writing `.maestro.blueprint.md` but before writing `.maestro.blueprint.levels`, spawn a subagent to audit commands embedded in task prose against the detected tech stack. This catches invalid CLI flags, wrong config property names, and commands that are syntactically valid but inappropriate for the stack (e.g. `tsc` as a production build when the framework ships its own `build` command).
+You are expected to get the blueprint right on the first pass — the Decision-coverage rule's pre-write self-check is the primary mechanism. The review subagent below is a backstop, not a license to defer thinking. If it returns issues, treat that as a signal that your self-check missed something, and tighten next time.
+
+After writing `.maestro.blueprint.md` but before writing `.maestro.blueprint.levels`, spawn one subagent that audits two things in a single pass: embedded commands AND Design Intent coverage.
 
 Call the `Agent` tool with:
 - `subagent_type: "general-purpose"`
-- `description`: `"Review blueprint commands"`
+- `description`: `"Audit blueprint"`
 - `prompt`: a self-contained brief including:
   1. **What you're reviewing** — explain this is a freshly written implementation blueprint at `.maestro.blueprint.md`. Paste the full file contents inline (read it back from disk so the subagent does not need to).
   2. **Detected tech stack** — a short bullet list of what repo reconnaissance found: framework, build tool/script, test framework, TypeScript config presence, any notable conventions.
-  3. **What to hunt for** — quote this verbatim: *"Find commands embedded in task descriptions (prose, backtick spans, or proposed `package.json` `scripts` entries) that are (a) syntactically invalid for the named tool, (b) using flags or config property names that don't exist for that tool, or (c) inappropriate given the detected stack — especially `tsc` used as a production builder when the framework has its own build command, or test-runner flags that don't exist. Check any task that mutates `package.json` `scripts` or config files (`tsconfig.json`, `next.config.*`, `postcss.config.*`) with extra scrutiny."*
+  3. **What to hunt for** — quote this verbatim: *"Audit two categories.*
+
+     *(A) Embedded commands. Find commands in task descriptions, backtick spans, or proposed `package.json` `scripts` entries that are (a) syntactically invalid for the named tool, (b) using flags or config property names that don't exist for that tool, or (c) inappropriate given the detected stack — especially `tsc` used as a production builder when the framework has its own build command, or test-runner flags that don't exist. Check any task that mutates `package.json` `scripts` or config files (`tsconfig.json`, `next.config.*`, `postcss.config.*`) with extra scrutiny.*
+
+     *(B) Design Intent coverage. For every named decision in the `### Design Intent` section — every color token, font, motif, named animation/spring/easing, layout rule (max-width, padding rhythm, dividers), motto/tagline string, and any other concrete construct — verify BOTH: (1) a foundation task creates it as an importable artifact (CSS variable, Tailwind config key, exported constant, motion preset, SVG component, content-module export, etc.), and (2) at least one downstream task references it by its exact name. Flag every decision that fails either check. Common failure modes: tokens declared but never consumed, named animations with no foundation module so spring constants are inlined per-component, layout rules (e.g. dividers between sections) named but not inserted by any task, motto strings duplicated as inline literals instead of imported from the content module, numeric ranges implemented one-sided."*
   4. **Return format** — quote this verbatim: *"If nothing is wrong, return exactly `NO_ISSUES` and nothing else. Otherwise, return a punch list, one entry per issue, each formatted as:*
 
      ```
-     - Section: <ticket number and task number, or 'Tech Stack' / 'File Structure'>
-       Bad: `<quoted command or property>`
+     - Category: Commands | Coverage
+       Section: <ticket number and task number, or 'Tech Stack' / 'File Structure' / 'Design Intent'>
+       Issue: `<quoted decision, command, or property>`
        Why: <one sentence>
-       Fix: <suggested replacement>
+       Fix: <suggested replacement or task to add>
      ```
 
-     *Keep the full response under 300 words. Do not include any other commentary."*
+     *Keep the full response under 400 words. Do not include any other commentary."*
 
 When the subagent returns:
 - If the response is exactly `NO_ISSUES`, proceed to write the levels file.
