@@ -18,8 +18,6 @@ source .github/scripts/review.sh
 
 # FIXME: Include current log output in the final review stage
 
-# FIXME: Needs to support restarting an implementation loop run so that a ralph run can be resumed and maestro complete
-
 # Settings
 
 LOCK_FILE=".maestro.lock"
@@ -29,12 +27,13 @@ BLUEPRINT_FILE=".maestro.blueprint.md"
 BLUEPRINT_LEVELS_FILE=".maestro.blueprint.levels"
 PR_TSV_FILE=".maestro.pull-requests.tsv"
 PR_SUMMARY_FILE=".maestro.summary.md"
+FOLDER_FILE=".maestro.folder"
 
 # Models
 
 export PROJECT_MANAGER_MODEL="claude-opus-4-7" # Planning
 export STAFF_DEVELOPER_MODEL="claude-opus-4-6" # Supervising
-export SENIOR_DEVELOPER_MODEL="claude-opus-4-6" # Backpressure
+export SENIOR_DEVELOPER_MODEL="openrouter/deepseek/deepseek-v4-pro" # Backpressure
 export JUNIOR_DEVELOPER_MODEL="minimax/MiniMax-M2.7" # Implementation
 export INTERN_DEVELOPER_MODEL="google/gemma-4-26b-a4b" # Writing Pull Requests
 
@@ -47,6 +46,7 @@ export BLUEPRINT_FILE
 # Environment variables
 
 MISSING_MINIMAX_API_KEY=false
+MISSING_OPENROUTER_API_KEY=false
 
 if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
@@ -54,6 +54,10 @@ if [ -f .env ]; then
 
     if [[ -z "$MINIMAX_API_KEY" || "$MINIMAX_API_KEY" == "<insert-key-here>" ]]; then
         MISSING_MINIMAX_API_KEY=true
+    fi
+
+    if [[ -z "$OPENROUTER_API_KEY" || "$OPENROUTER_API_KEY" == "<insert-key-here>" ]]; then
+        MISSING_OPENROUTER_API_KEY=true
     fi
 else
     MODEL_VARS=(
@@ -70,6 +74,9 @@ else
         if [[ "$value" == minimax/* ]]; then
             MISSING_MINIMAX_API_KEY=true
             break
+        elif [[ "$value" == openrouter/* ]]; then
+            MISSING_OPENROUTER_API_KEY=true
+            break
         fi
     done
     log INFO "No .env file found."
@@ -77,6 +84,11 @@ fi
 
 if [[ "$MISSING_MINIMAX_API_KEY" == "true" ]]; then
     log ERROR "Missing MINIMAX_API_KEY in .env file. Please set it to your API key."
+    exit 1
+fi
+
+if [[ "$MISSING_OPENROUTER_API_KEY" == "true" ]]; then
+    log ERROR "Missing OPENROUTER_API_KEY in .env file. Please set it to your API key."
     exit 1
 fi
 
@@ -146,7 +158,7 @@ cleanup() {
     local exit_code=$?
     rm -f "$LOCK_FILE" "$LOG_FILE" "$PR_TSV_FILE" "$PR_SUMMARY_FILE" ".maestro.screenshot.png"
     if [[ $exit_code -eq 0 ]]; then
-        rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE"
+        rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE" "$FOLDER_FILE"
     else
         notify "Maestro encountered an error. Please review the logs for more information."
     fi
@@ -205,6 +217,7 @@ while $MISSING_BLUEPRINT; do
         REUSING_EXISTING_PLAN=true
     else
         log INFO "Generating implementation plan..."
+        rm -f "$FOLDER_FILE"
         BLUEPRINT_PROMPT_BODY=$(cat .github/prompts/blueprint.md 2>/dev/null || echo "")
         if [[ -z "$BLUEPRINT_PROMPT_BODY" ]]; then
             log ERROR "Blueprint prompt missing at .github/prompts/blueprint.md. Aborting."
@@ -276,7 +289,7 @@ $*
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
         MISSING_BLUEPRINT=false
     else
-        rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE"
+        rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE" "$FOLDER_FILE"
 
         if [ -z "$*" ] && ! $REUSING_EXISTING_PLAN; then
             log ERROR "User declined existing plan, but no feature(s) request paragraph/description provided."
@@ -288,23 +301,31 @@ $*
         continue
     fi
 
-    FIRST_LINE=$(head -1 "$BLUEPRINT_FILE")
-    if [[ "$FIRST_LINE" =~ ^##\ Implementation\ Plan:\ .+ ]]; then
-        EXTRACTED_NAME=$(echo "$FIRST_LINE" | sed 's/## Implementation Plan: //g' | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+    if [[ -s "$FOLDER_FILE" ]]; then
+        FOLDER_NAME=$(cat "$FOLDER_FILE")
+        log INFO "Resuming with archive destination: $FOLDER_NAME"
     else
-        EXTRACTED_NAME="new-feature"
-        log WARN "Could not parse blueprint name from header. Defaulting to '$EXTRACTED_NAME'."
+        FIRST_LINE=$(head -1 "$BLUEPRINT_FILE")
+        if [[ "$FIRST_LINE" =~ ^##\ Implementation\ Plan:\ .+ ]]; then
+            EXTRACTED_NAME=$(echo "$FIRST_LINE" | sed 's/## Implementation Plan: //g' | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+        else
+            EXTRACTED_NAME="new-feature"
+            log WARN "Could not parse blueprint name from header. Defaulting to '$EXTRACTED_NAME'."
+        fi
+        FOLDER_NAME="docs/$EXTRACTED_NAME"
+
+        COUNTER=0
+        BASE="$FOLDER_NAME"
+        while [[ -e "$FOLDER_NAME" ]]; do
+            COUNTER=$((COUNTER + 1))
+            FOLDER_NAME="${BASE}-${COUNTER}"
+        done
+
+        echo "$FOLDER_NAME" > "$FOLDER_FILE"
+        mkdir -p "$FOLDER_NAME"
+        cp "$BLUEPRINT_LEVELS_FILE" "$FOLDER_NAME/plan.levels"
+        log INFO "Using $FOLDER_NAME as archive destination."
     fi
-    FOLDER_NAME="docs/$EXTRACTED_NAME"
-
-    COUNTER=0
-    BASE="$FOLDER_NAME"
-    while [[ -e "$FOLDER_NAME" ]]; do
-        COUNTER=$((COUNTER + 1))
-        FOLDER_NAME="${BASE}-${COUNTER}"
-    done
-
-    log INFO "Using $FOLDER_NAME as archive destination."
 done
 
 if [[ ! -s "$BLUEPRINT_FILE" ]]; then
@@ -313,10 +334,8 @@ if [[ ! -s "$BLUEPRINT_FILE" ]]; then
 fi
 
 log INFO "Proceeding through implementation tree levels..."
-LEVEL_INDEX=0
 while IFS= read -r LEVEL <&3; do
     log INFO "Beginning level \"$LEVEL\"..."
-    LEVEL_INDEX=$((LEVEL_INDEX + 1))
     BRANCHES=""
 
     log INFO "Generating PRD(s)..."
@@ -408,6 +427,10 @@ while IFS= read -r LEVEL <&3; do
     fi
 
     review_pull_requests "$IMPLEMENTATION_BRANCHES"
+
+    tail -n +2 "$BLUEPRINT_LEVELS_FILE" > "$BLUEPRINT_LEVELS_FILE.tmp"
+    mv -f "$BLUEPRINT_LEVELS_FILE.tmp" "$BLUEPRINT_LEVELS_FILE"
+    log SUCCESS "Completed implementation level \"$LEVEL\"!"
 done 3<<< "$TREE_LEVELS"
 
 log INFO "Running implementation review..."
@@ -415,7 +438,6 @@ review_implementation "$FOLDER_NAME"
 
 log INFO "Archiving plan and log..."
 mv -f "$BLUEPRINT_FILE" "$FOLDER_NAME/plan.md"
-mv -f "$BLUEPRINT_LEVELS_FILE" "$FOLDER_NAME/plan.levels"
 mv -f "$LOG_FILE" "$FOLDER_NAME/maestro.log"
 git add .
 git commit -m "chore(ai): Add Maestro log for $FOLDER_NAME"

@@ -79,7 +79,7 @@ remove_backpressure() {
         return 0
     fi
 
-    echo "$NEW_TESTS" | xargs git rm
+    echo "$NEW_TESTS" | xargs git rm --ignore-unmatch
 
     git add .
     git diff --cached --quiet || git commit -m "chore(ai): Clean out backpressure"
