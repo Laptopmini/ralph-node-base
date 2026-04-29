@@ -226,6 +226,7 @@ while $MISSING_BLUEPRINT; do
 
             if [[ $STYLE_EXIT -ne 0 ]]; then
                 log WARN "Style analysis failed (exit $STYLE_EXIT) for $FEATURE_URL — skipping visual reference."
+                log WARN "$STYLE_OUTPUT"
             elif [[ -n "$STYLE_JSON" ]]; then
                 STYLE_CONTEXT="
 --- VISUAL REFERENCE ---

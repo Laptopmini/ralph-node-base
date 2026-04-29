@@ -1,28 +1,48 @@
 const { chromium } = require("playwright");
 
 async function analyzeStyle(url) {
-  // Launch browser (headless by default)
   const browser = await chromium.launch();
   const page = await browser.newPage();
   let exitCode = 0;
 
-  console.log(`Analyzing ${url}...`);
-
   try {
-    // Wait until there are no network connections for at least 500 ms
     await page.goto(url, { waitUntil: "networkidle" });
 
-    // 1. Take a screenshot of the viewport (or set fullPage: true)
-    const screenshotPath = ".maestro.screenshot.png";
-    await page.screenshot({ path: screenshotPath });
+    // Scroll to the bottom of the page
+    await page.evaluate(async () => {
+      await new Promise((resolve) => {
+        let totalHeight = 0;
+        const distance = 100;
+        const timer = setInterval(() => {
+          const scrollHeight = document.body.scrollHeight;
+          window.scrollBy(0, distance);
+          totalHeight += distance;
 
-    // 2. Extract CSS variables and basic computed styles
+          if (totalHeight >= scrollHeight - window.innerHeight) {
+            clearInterval(timer);
+            resolve();
+          }
+        }, 100); // Scroll down every 100ms
+      });
+    });
+
+    // Go back to the top of the page
+    await page.evaluate(() => window.scrollTo(0, 0));
+
+    // Wait 500ms for any sticky headers or scroll-triggered animations to reset
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 500)));
+
+    // Capture full-page screenshot
+    const screenshotPath = ".maestro.screenshot.png";
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+
+    // Extract CSS tokens
     const styles = await page.evaluate(() => {
       const root = document.documentElement;
       const computedStyle = getComputedStyle(root);
       const bodyStyle = getComputedStyle(document.body);
 
-      // Iterate through computed styles to find CSS variables (e.g., Tailwind/custom vars)
+      // Iterate through computed styles to find CSS variables
       const cssVars = {};
       for (let i = 0; i < computedStyle.length; i++) {
         const prop = computedStyle[i];
@@ -39,12 +59,10 @@ async function analyzeStyle(url) {
       };
     });
 
-    console.log("\n=== STYLE ANALYSIS COMPLETE ===");
-    console.log(`Screenshot saved to: ${screenshotPath}`);
-    console.log("\nExtracted Styles:");
+    // Log results
     console.log(JSON.stringify(styles, null, 2));
   } catch (error) {
-    console.error(`Failed to analyze URL: ${error.message}`);
+    console.error(`${error.message}`);
     exitCode = 1;
   } finally {
     await browser.close();
