@@ -84,9 +84,9 @@ At each step, the Intern writes PR titles and descriptions so every gate is revi
 
 | Tool | Role |
 |------|------|
-| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Agentic CLI for Anthropic and MiniMax models |
-| [OpenCode](https://opencode.ai/) | Agentic CLI for local LM Studio models |
-| [LM Studio](https://lmstudio.ai/) | Local LLM server (Intern role) |
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Agentic CLI |
+| [OpenCode](https://opencode.ai/) | Agentic CLI |
+| [LM Studio](https://lmstudio.ai/) | Local LLM server |
 | [Jest](https://jestjs.io/) | Unit testing |
 | [Playwright](https://playwright.dev/) | E2E testing |
 | [Biome](https://biomejs.dev/) | Linting and formatting |
