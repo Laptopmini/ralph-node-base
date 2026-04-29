@@ -5,6 +5,10 @@
 # Usage: ./maestro.sh <Your feature request paragraph>
 # ==============================================================================
 
+# FIXME: Leverage custom --systemPrompt so that directives can be stronger in Ralph and Repair agents (look at gains from prompt caching through iterations)
+
+# FIXME: Include current log output in the final review stage
+
 set -euo pipefail
 
 source .github/scripts/helpers/ask.sh
@@ -14,9 +18,7 @@ source .github/scripts/summarizer.sh
 source .github/scripts/helpers/notify.sh
 source .github/scripts/review.sh
 
-# FIXME: Leverage custom --systemPrompt so that directives can be stronger in Ralph and Repair agents (look at gains from prompt caching through iterations)
-
-# FIXME: Include current log output in the final review stage
+bash .github/scripts/helpers/greeting.sh
 
 # Settings
 

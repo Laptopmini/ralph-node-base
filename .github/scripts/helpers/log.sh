@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Configuration
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
 

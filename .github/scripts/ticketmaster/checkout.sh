@@ -28,10 +28,20 @@ has_remote_branch() {
 checkout_branch() {
     local branch_name="$1"
     
-    if has_local_branch "$branch_name"; then
+    local local_exists=false
+    local remote_exists=false
+    has_local_branch "$branch_name" && local_exists=true
+    has_remote_branch "$branch_name" && remote_exists=true
+
+    if $local_exists && $remote_exists; then
         git checkout "$branch_name" || { log ERROR "Failed to checkout $branch_name (local)"; exit 1; }
         git pull origin "$branch_name" || { log ERROR "Failed to pull from origin/$branch_name"; exit 1; }
-    elif has_remote_branch "$branch_name"; then
+    elif $local_exists; then
+        log INFO "Local branch $branch_name exists but remote is gone. Recreating from $(git branch --show-current)."
+        git branch -D "$branch_name" || { log ERROR "Failed to delete stale local branch $branch_name"; exit 1; }
+        git checkout -b "$branch_name" || { log ERROR "Failed to recreate $branch_name"; exit 1; }
+        git push -u origin "$branch_name" || { log ERROR "Failed to push origin/$branch_name"; exit 1; }
+    elif $remote_exists; then
         git checkout -b "$branch_name" origin/"$branch_name" || { log ERROR "Failed to checkout $branch_name (remote)"; exit 1; }
     else
         git checkout -b "$branch_name" || { log ERROR "Failed to checkout $branch_name (new branch)"; exit 1; }
