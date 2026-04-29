@@ -49,6 +49,7 @@ ERROR_FEEDBACK=""
 LOOP_COUNTER=0
 TOTAL_LOOPS=0
 TOTAL_REPAIRS=0
+LAST_TASK_REPAIR=""
 PREVIOUS_TASK_VALIDATION=()
 declare -A PREVIOUS_TASK_VALIDATION_LOOKUP
 
@@ -97,6 +98,11 @@ while true; do
     LEDGER_CONTEXT=$(tail -n 5 .agent-ledger.jsonl 2>/dev/null || echo "No history.")
     
     if [[ "$LOOP_COUNTER" -ge "$MAX_LOOPS" ]]; then
+        if [[ "$LAST_TASK_REPAIR" == "$CURRENT_TASK" ]]; then
+            log ERROR "⚠️ Max loops reached for task after repair attempt. Aborting."
+            exit 1
+        fi
+
         log WARN "Max loops reached for task. Escalating to repair agent before aborting..."
 
         REPAIR_PROMPT_BODY=$(cat .github/prompts/repair.md 2>/dev/null || echo "")
@@ -160,13 +166,15 @@ $REPAIR_BLUEPRINT_CONTEXT
         log INFO "Repair verdict: ${REPAIR_VERDICT:-(none)}"
         log INFO "Repair summary: ${REPAIR_SUMMARY:-(none)}"
 
+        LAST_TASK_REPAIR="$CURRENT_TASK"
+        TOTAL_LOOPS=$((TOTAL_LOOPS+LOOP_COUNTER))
+        TOTAL_REPAIRS=$((TOTAL_REPAIRS+1))
+        LOOP_COUNTER=0
+        ERROR_FEEDBACK=""
+
         case "$REPAIR_VERDICT" in
             code-fix)
                 log INFO "Repair patched code directly. Resetting loop counter and error feedback."
-                TOTAL_LOOPS=$((TOTAL_LOOPS+LOOP_COUNTER))
-                TOTAL_REPAIRS=$((TOTAL_REPAIRS+1))
-                LOOP_COUNTER=0
-                ERROR_FEEDBACK=""
                 continue
                 ;;
             backpressure-bug)
@@ -177,10 +185,6 @@ $REPAIR_BLUEPRINT_CONTEXT
                 fi
                 git commit -m "fix(ai): Repair backpressure for stuck task" || true
                 log INFO "Backpressure patched. Resetting loop counter and error feedback."
-                TOTAL_LOOPS=$((TOTAL_LOOPS+LOOP_COUNTER))
-                TOTAL_REPAIRS=$((TOTAL_REPAIRS+1))
-                LOOP_COUNTER=0
-                ERROR_FEEDBACK=""
                 continue
                 ;;
             abort|*)

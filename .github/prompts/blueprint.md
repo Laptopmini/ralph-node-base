@@ -26,6 +26,7 @@ Before writing anything, read enough of the repo to design with what's already t
 - `CLAUDE.md` and `AGENTS.md` (if present) for project conventions.
 - The existing `src/` / `app/` / `tests/` layout, if any.
 - Any existing `docs/<feature>/` archives that hint at prior conventions.
+- If a `--- VISUAL REFERENCE ---` section appears at the end of this prompt, it contains extracted styles and a screenshot path from the referenced URL. Read the screenshot with the `Read` tool to see the actual visual appearance. Prefer these real values over guesses for Design Intent tokens.
 
 Prefer reusing existing utilities, configs, and patterns over inventing new ones.
 
