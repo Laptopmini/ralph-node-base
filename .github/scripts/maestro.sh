@@ -212,12 +212,8 @@ while $MISSING_BLUEPRINT; do
         fi
 
         STYLE_CONTEXT=""
-        FEATURE_URL=$(echo "$*" | grep -oiE '(https?://[^ ]+|[a-z0-9]([a-z0-9-]*[a-z0-9])?\.[a-z]{2,}(/[^ ]*)?)' | head -1 || true)
+        FEATURE_URL=$(echo "$*" | grep -oiE 'https?://[^ ]+' | head -1 || true)
         if [[ -n "$FEATURE_URL" ]]; then
-            if [[ "$FEATURE_URL" != http://* && "$FEATURE_URL" != https://* ]]; then
-                FEATURE_URL="https://$FEATURE_URL"
-            fi
-
             log INFO "Analyzing reference URL: $FEATURE_URL"
             set +e
             STYLE_JSON=$(node .github/scripts/helpers/analyze_style.js "$FEATURE_URL" 2>&1)
@@ -226,7 +222,7 @@ while $MISSING_BLUEPRINT; do
 
             if [[ $STYLE_EXIT -ne 0 ]]; then
                 log WARN "Style analysis failed (exit $STYLE_EXIT) for $FEATURE_URL — skipping visual reference."
-                log WARN "$STYLE_OUTPUT"
+                log WARN "$STYLE_JSON"
             elif [[ -n "$STYLE_JSON" ]]; then
                 STYLE_CONTEXT="
 --- VISUAL REFERENCE ---
