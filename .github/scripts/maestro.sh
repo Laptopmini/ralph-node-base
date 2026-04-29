@@ -156,11 +156,11 @@ review_pull_requests() {
 
 cleanup() {
     local exit_code=$?
-    rm -f "$LOCK_FILE" "$LOG_FILE" "$PR_TSV_FILE" "$PR_SUMMARY_FILE" ".maestro.screenshot.png"
+    rm -f "$LOCK_FILE" "$LOG_FILE" "$LOG_FILE_BACKUP" "$PR_TSV_FILE" "$PR_SUMMARY_FILE" ".maestro.screenshot.png"
     if [[ $exit_code -eq 0 ]]; then
         rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE" "$FOLDER_FILE"
-    else
-        notify "Maestro encountered an error. Please review the logs for more information."
+    elif [[ $exit_code -ne 130 ]]; then
+        notify "Maestro encountered an error. Please review the logs for more information." 2>/dev/null || true
     fi
 }
 
@@ -171,9 +171,9 @@ if [ -e "$LOCK_FILE" ]; then
     exit 1
 fi
 
-touch "$LOCK_FILE"
 trap cleanup EXIT
 trap 'exit 130' INT HUP TERM
+touch "$LOCK_FILE"
 
 if [ ! -s "$BLUEPRINT_FILE" ] || [ ! -s "$BLUEPRINT_LEVELS_FILE" ]; then
     if [ -z "$*" ]; then
