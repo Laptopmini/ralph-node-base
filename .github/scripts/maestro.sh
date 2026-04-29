@@ -18,6 +18,8 @@ source .github/scripts/review.sh
 
 # FIXME: Include current log output in the final review stage
 
+# FIXME: Needs to support restarting an implementation loop run so that a ralph run can be resumed and maestro complete
+
 # Settings
 
 LOCK_FILE=".maestro.lock"
@@ -142,7 +144,7 @@ review_pull_requests() {
 
 cleanup() {
     local exit_code=$?
-    rm -f "$LOCK_FILE" "$LOG_FILE" "$PR_TSV_FILE" "$PR_SUMMARY_FILE"
+    rm -f "$LOCK_FILE" "$LOG_FILE" "$PR_TSV_FILE" "$PR_SUMMARY_FILE" ".maestro.screenshot.png"
     if [[ $exit_code -eq 0 ]]; then
         rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE"
     else
@@ -209,8 +211,41 @@ while $MISSING_BLUEPRINT; do
             exit 1
         fi
 
-        BLUEPRINT_PROMPT="$BLUEPRINT_PROMPT_BODY
+        STYLE_CONTEXT=""
+        FEATURE_URL=$(echo "$*" | grep -oiE '(https?://[^ ]+|[a-z0-9]([a-z0-9-]*[a-z0-9])?\.[a-z]{2,}(/[^ ]*)?)' | head -1 || true)
+        if [[ -n "$FEATURE_URL" ]]; then
+            if [[ "$FEATURE_URL" != http://* && "$FEATURE_URL" != https://* ]]; then
+                FEATURE_URL="https://$FEATURE_URL"
+            fi
 
+            log INFO "Analyzing reference URL: $FEATURE_URL"
+            set +e
+            STYLE_JSON=$(node .github/scripts/helpers/analyze_style.js "$FEATURE_URL" 2>&1)
+            STYLE_EXIT=$?
+            set -e
+
+            if [[ $STYLE_EXIT -ne 0 ]]; then
+                log WARN "Style analysis failed (exit $STYLE_EXIT) for $FEATURE_URL — skipping visual reference."
+                log WARN "$STYLE_OUTPUT"
+            elif [[ -n "$STYLE_JSON" ]]; then
+                STYLE_CONTEXT="
+--- VISUAL REFERENCE ---
+
+The feature request references a URL. A style analysis tool was run against it.
+
+Screenshot saved to: .maestro.screenshot.png (use the Read tool to view it)
+
+Extracted styles:
+$STYLE_JSON
+
+Use these extracted values as the basis for Design Intent tokens (colors, fonts, etc.) rather than inventing values. The screenshot shows the actual visual appearance — read it to understand layout, spacing, and visual motifs.
+
+"
+            fi
+        fi
+
+        BLUEPRINT_PROMPT="$BLUEPRINT_PROMPT_BODY
+$STYLE_CONTEXT
 --- HUMAN FEATURE REQUEST ---
 
 $*
