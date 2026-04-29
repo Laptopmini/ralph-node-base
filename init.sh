@@ -33,6 +33,7 @@ npx playwright install chromium
 cat <<EOF > .env
 # NTFY_TOPIC=<provide-topic-here-and-uncomment-to-receive-notifications>
 MINIMAX_API_KEY=<insert-key-here>
+OPENROUTER_API_KEY=<insert-key-here>
 EOF
 read -n 1 -s -r -p "Created .env file! Please set the value for MINIMAX_API_KEY. Press any key when finished..."$'\n' < /dev/tty;
 

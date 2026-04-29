@@ -77,7 +77,7 @@ prompt() {
     done
 
     if [[ "$MODEL" != claude-* ]]; then
-        if [[ "$MODEL" != minimax/* ]]; then
+        if [[ "$MODEL" != minimax/* && "$MODEL" != openrouter* ]]; then
             bash .github/scripts/agents/load-model.sh "$MODEL"
         fi
 
@@ -106,12 +106,16 @@ prompt() {
                 minimax/MiniMax-M2.7)
                     MAX_CONTEXT_WINDOW=196000
                     ;;
+                openrouter/deepseek/deepseek-v4-pro)
+                    MAX_CONTEXT_WINDOW=1000000
+                    ;;
                 *)
                     log WARN "Model $MODEL does not have a max context window size! Using default of $MAX_CONTEXT_WINDOW." >&2
                     ;;
             esac
 
             LOCAL_ENV=(
+                ANTHROPIC_API_KEY=""
                 # Extend shell command timeouts for long-running operations (40-42 minutes)
                 BASH_DEFAULT_TIMEOUT_MS="2400000" 
                 BASH_MAX_TIMEOUT_MS="$BASH_MAX_TIMEOUT"
@@ -129,33 +133,38 @@ prompt() {
                 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1"
             )
 
+            local DEFAULT_MODEL="$MODEL"
+
             if [[ "$MODEL" == minimax/* ]]; then
-                local MINIMAX_MODEL="${MODEL#minimax/}"
+                DEFAULT_MODEL="${MODEL#minimax/}"
                 LOCAL_ENV+=(
                     ANTHROPIC_BASE_URL="https://api.minimax.io/anthropic"
                     ANTHROPIC_AUTH_TOKEN="$MINIMAX_API_KEY"
-                    ANTHROPIC_MODEL="$MINIMAX_MODEL"
-                    ANTHROPIC_DEFAULT_OPUS_MODEL="$MINIMAX_MODEL"
-                    ANTHROPIC_DEFAULT_SONNET_MODEL="$MINIMAX_MODEL"
-                    ANTHROPIC_DEFAULT_HAIKU_MODEL="$MINIMAX_MODEL"
-                    ANTHROPIC_SMALL_FAST_MODEL="$MINIMAX_MODEL"
-                    CLAUDE_CODE_SUBAGENT_MODEL="$MINIMAX_MODEL"
+                )
+            elif [[ "$MODEL" == openrouter/* ]]; then
+                DEFAULT_MODEL="${MODEL#openrouter/}"
+                LOCAL_ENV+=(
+                    ANTHROPIC_BASE_URL="https://openrouter.ai/api"
+                    ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"
                 )
             else
                 LOCAL_ENV+=(
                     ANTHROPIC_BASE_URL="http://localhost:1234"
                     ANTHROPIC_AUTH_TOKEN="lmstudio"
-                    ANTHROPIC_MODEL="$MODEL"
                     ANTHROPIC_CUSTOM_MODEL_OPTION="$MODEL"
                     ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="LM Studio ($MODEL)"
                     ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="The local LM Studio server running the model $MODEL locally."
-                    ANTHROPIC_DEFAULT_OPUS_MODEL="$MODEL"
-                    ANTHROPIC_DEFAULT_SONNET_MODEL="$MODEL"
-                    ANTHROPIC_DEFAULT_HAIKU_MODEL="$MODEL"
-                    ANTHROPIC_SMALL_FAST_MODEL="$MODEL"
-                    CLAUDE_CODE_SUBAGENT_MODEL="$MODEL"
                 )
             fi
+
+            LOCAL_ENV+=(
+                ANTHROPIC_MODEL="$DEFAULT_MODEL"
+                ANTHROPIC_DEFAULT_OPUS_MODEL="$DEFAULT_MODEL"
+                ANTHROPIC_DEFAULT_SONNET_MODEL="$DEFAULT_MODEL"
+                ANTHROPIC_DEFAULT_HAIKU_MODEL="$DEFAULT_MODEL"
+                ANTHROPIC_SMALL_FAST_MODEL="$DEFAULT_MODEL"
+                CLAUDE_CODE_SUBAGENT_MODEL="$DEFAULT_MODEL"
+            )
         else
             LOCAL_ENV=(
                 OPENCODE_PERMISSION="$(get_opencode_permissions "$ALLOWED" "$DISALLOWED")" # Inlined json permissions config
@@ -166,10 +175,13 @@ prompt() {
                 OPENCODE_DISABLE_CLAUDE_CODE_PROMPT=true # Disable reading .CLAUDE.md file
                 # Experimental settings
                 OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS=$BASH_MAX_TIMEOUT # Increase bash timeout
-                # OPENCODE_EXPERIMENTAL_PLAN_MODE=true # Enable experimental plan mode
             )
 
             if [[ "$MODEL" == minimax/* ]]; then
+                LOCAL_ENV+=(
+                    OPENCODE_MODEL="$MODEL"
+                )
+            elif [[ "$MODEL" == opencode/* ]]; then
                 LOCAL_ENV+=(
                     OPENCODE_MODEL="$MODEL"
                 )
@@ -256,7 +268,6 @@ prompt() {
         env "${LOCAL_ENV[@]}" opencode run "$AGENT_PROMPT" "${EXTRA_ARGS[@]:-}"
         ENGINE_EXIT=$?
     else
-        # FIXME: Add support for Aider (https://aider.chat/)
         log ERROR "$CLI CLI is not supported." >&2
         return 1
     fi
