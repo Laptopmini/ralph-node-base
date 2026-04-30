@@ -95,6 +95,8 @@ N. [<tag>, <slug>] description...
 N. [<tag>, <slug>, <ext>] description...
 ```
 
+**Each task MUST be a single line — no line breaks, no continuation lines, no indented sub-bullets.** The downstream awk parser reads one line at a time (`/^[0-9]+\. \[/ { print }`); any content on subsequent lines is silently dropped. If a task has many sub-instructions, join them into the same line as period-separated or semicolon-separated clauses. Long lines are fine — truncated tasks are not.
+
 Where:
 - `<tag>` ∈ `{infra, code}`.
   - `infra` → maps to `bash tests/scripts/<slug>.sh` (a shell validation script). Use for: dependency installs, config files (`tsconfig.json`, `next.config.mjs`, `postcss.config.mjs`), filesystem state (delete file, copy asset), workflow YAML, gitignore changes.
