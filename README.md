@@ -57,6 +57,12 @@ Any repo — this one or a fork — can serve as the starting point for the next
 npm run maestro   # Provide a feature request
 ```
 
+To use a page as a visual/style reference, tag its URL with a `[visual: <url>]` marker in the request. Maestro will screenshot and analyze it for Design Intent tokens:
+
+```bash
+npm run maestro "Build a pricing page [visual: https://stripe.com/pricing]"
+```
+
 Maestro then drives the full pipeline automatically, pausing only at PR gates:
 
 1. **Plan** — the Project Manager produces a blueprint and opens it locally for your review. Approve to proceed, or reject to regenerate.
