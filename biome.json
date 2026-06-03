@@ -56,6 +56,11 @@
     },
     {
       "includes": ["**/*.css"],
+      "css": {
+        "parser": {
+          "tailwindDirectives": true
+        }
+      },
       "linter": {
         "rules": {
           "suspicious": {
