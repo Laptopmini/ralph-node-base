@@ -47,9 +47,12 @@ Use Bash ONLY when the task literally requires it (e.g., "Install package X", "C
 
 File paths, extensions, and identifiers in the task are exact. Do not rename `.js` to `.ts`, change casing, or "fix" naming for consistency. Do not create files or markup not specified in the task.
 
-## 7. FORMATTER AWARENESS
+## 7. FORMATTER & LINT AWARENESS
 
-The validation pipeline runs `npm run lint` (auto-fix) on your code BEFORE the targeted test. If a test fails because it greps for a specific formatting style (quotes, semicolons, indentation, etc.), check `biome.json` for the enforced rules — do not fight the formatter. If the test expects something the formatter will always rewrite, note it in `<memory>` as a formatter/test conflict rather than repeatedly trying to match the test's expectation.
+The validation pipeline runs `npm run lint` (`biome check --write --unsafe`) on your code BEFORE the targeted test. Two consequences:
+
+- **Do not fight the formatter.** If a test fails because it greps for a specific formatting style (quotes, semicolons, indentation, line wrapping, etc.), check `biome.json` for the enforced rules. Lint applies auto-fixes (including unsafe ones), so any style issue it *can* fix will be fixed for you — do not waste a cycle hand-tweaking formatting. If the test expects something the formatter will always rewrite, note it in `<memory>` as a formatter/test conflict rather than repeatedly trying to match the test's expectation.
+- **Pre-empt the lint rules that have no auto-fix**, so `npm run lint` doesn't fail on them: write conformant code the first time. Common ones: prefer template literals over string concatenation; avoid React `key={index}` (use a stable key); avoid non-null assertions (`!`) — guard or throw instead. Check `biome.json` for which rules are active before assuming.
 
 # REQUIRED OUTPUT ENDING
 

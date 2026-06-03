@@ -10,7 +10,7 @@
     "maestro": "bash .github/scripts/maestro.sh",
     "backpressure": "bash .github/scripts/backpressure.sh",
     "ralph": "bash .github/scripts/ralph.sh",
-    "lint": "biome check --write .",
+    "lint": "biome check --write --unsafe .",
     "check-types": "tsc --noEmit"
   },
   "repository": {

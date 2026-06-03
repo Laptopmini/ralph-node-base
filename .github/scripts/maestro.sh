@@ -9,6 +9,16 @@
 
 # FIXME: Include current log output in the final review stage
 
+# FIXME: Add before&after token usage and cost using tokscale
+
+# FIXME: Add support for parrallel backpressure and implementation
+
+# FIXME: Improve Gemma PR titles, they are none descriptive at the moment
+
+# FIXME: Repair agent: If the backpressure is fixed, concider updating the PRD task description if it introduced the issue?
+
+# FIXME: Backpressure agent needs to enforce tests using Biome rules. Claude still fixes issues with quotes.
+
 set -euo pipefail
 
 source .github/scripts/helpers/ask.sh
@@ -33,10 +43,10 @@ FOLDER_FILE=".maestro.folder"
 
 # Models
 
-export PROJECT_MANAGER_MODEL="claude-opus-4-7" # Planning
+export PROJECT_MANAGER_MODEL="claude-opus-4-8" # Planning
 export STAFF_DEVELOPER_MODEL="claude-opus-4-6" # Supervising
 export SENIOR_DEVELOPER_MODEL="openrouter/deepseek/deepseek-v4-pro" # Backpressure
-export JUNIOR_DEVELOPER_MODEL="minimax/MiniMax-M2.7" # Implementation
+export JUNIOR_DEVELOPER_MODEL="minimax/MiniMax-M3" # Implementation
 export INTERN_DEVELOPER_MODEL="google/gemma-4-26b-a4b" # Writing Pull Requests
 
 # Variables
@@ -261,8 +271,9 @@ $STYLE_CONTEXT
 
 $*
 "
-        prompt "$BLUEPRINT_PROMPT" \
-            --allowedTools "Read,Glob,Grep,Write($BLUEPRINT_FILE),Edit($BLUEPRINT_FILE),Write($BLUEPRINT_LEVELS_FILE),Edit($BLUEPRINT_LEVELS_FILE),Agent" \
+        MCP_TOOL_TIMEOUT="3600000" prompt "$BLUEPRINT_PROMPT" \
+            --allowedTools "Read,Glob,Grep,Write($BLUEPRINT_FILE),Edit($BLUEPRINT_FILE),Write($BLUEPRINT_LEVELS_FILE),Edit($BLUEPRINT_LEVELS_FILE),Agent,mcp__maestro__ask_user" \
+            --mcp-config .github/mcp/ask-user.json --strict-mcp-config \
             --model "$PROJECT_MANAGER_MODEL"
 
         if [[ ! -s "$BLUEPRINT_FILE" || ! -s "$BLUEPRINT_LEVELS_FILE" ]]; then

@@ -30,6 +30,19 @@ Before writing anything, read enough of the repo to design with what's already t
 
 Prefer reusing existing utilities, configs, and patterns over inventing new ones.
 
+# OPTIONAL: CLARIFY WITH THE HUMAN
+
+You have a tool, `ask_user`, that surfaces clarifying questions to the human who submitted the feature request and blocks until they answer. It is the one channel back to them before the first PR gate.
+
+Use it sparingly and only when it changes the plan:
+
+- Call it **at most once**. Batch every question (aim for **≤ 4**) into that single call — the human answers them all in one sitting. Fold dependent follow-ups into one compound question rather than spending a second round-trip.
+- Ask **only** about **load-bearing facts you cannot resolve from repo reconnaissance**: the deployment target, an external integration or API contract, credentials/services that must already exist, or the behavior of an existing system the JUNIOR cannot infer. A wrong guess on one of these silently propagates through tickets, backpressure, and implementation before the human ever sees it.
+- **Do NOT ask about taste, palette, typography, copy voice, or any aesthetic direction.** Per the Authorial Stance above, those are yours to commit. Asking the human to design for you is a failure.
+- If you have no such questions — the common case — **skip the tool entirely** and proceed straight to writing the artifacts. Silence is the default; reach for `ask_user` only when a real ambiguity would otherwise become a wrong assumption.
+
+Treat the answers as authoritative and fold them into the Mission Statement and the relevant tasks.
+
 # OUTPUT FILE 1: `.maestro.blueprint.md`
 
 The first line MUST be `## Implementation Plan: <Title-In-Title-Case>` — the orchestrator slugifies this to derive the archive folder name.
@@ -39,8 +52,13 @@ Required sections, in order:
 ```
 ## Implementation Plan: <Title>
 
-### Assumptions
-- bullet list of assumptions you're making about the request, repo state, deployment target, etc.
+### Mission Statement
+
+One or two short paragraphs. State what we're building, who or what it serves, and the bar of intent. If an operating assumption is genuinely load-bearing (deployment target, integration constraint, repo state that the JUNIOR cannot infer), fold it inline as a sentence — do not emit a defensive bullet dump. If nothing is load-bearing, leave it out.
+
+### Success Criteria
+- bulleted, observable, falsifiable signals of feature-level done.
+- each criterion must be checkable by inspection — an artifact exists, a command exits 0, a page renders X, an API returns shape Y. No adjectives without referents, no aspirational prose.
 
 ### Design Intent
 
@@ -73,6 +91,7 @@ For each dimension that applies, give a **name** and a **concrete value**. If yo
 
 #### Ticket N: <Short Title>
 **depends_on:** [Ticket M]   <-- omit for tickets with no dependency
+**Acceptance:** <one observable line stating what "this ticket succeeded" looks like, independent of which tasks it contains>
 
 > One-paragraph summary of the ticket's intent.
 
@@ -80,6 +99,19 @@ For each dimension that applies, give a **name** and a **concrete value**. If yo
 1. [<tag>, <slug>, <ext>] description...
 2. [<tag>, <slug>, <ext>] description...
 ```
+
+## Spec sections vs. build sections
+
+The four intent sections together form the spec; the task list is the build:
+
+- **Mission Statement** — *why* we're building it.
+- **Success Criteria** — *how we'll know it worked* (feature-level).
+- **Design Intent** — *what character it has* (named, concrete tokens).
+- **Acceptance** (per ticket) — *what this slice delivers*.
+
+`generate-prd.sh` only forwards ticket titles plus task lines (regex `^[0-9]+\. \[`) to the JUNIOR. Mission Statement, Success Criteria, and per-ticket `**Acceptance:**` lines are therefore invisible to the JUNIOR by design — they exist for the human PR-gate reviewer and for downstream review agents. Keep them terse and observable, not exhaustive. They are not a place to re-explain task content.
+
+Per-ticket `**Acceptance:**` is one line. If you cannot write it observably, the ticket is under-specified — split it, merge it, or sharpen its scope before settling for prose.
 
 > **Do not emit `Constraints` or `Files owned` blocks.** A downstream PRD generator hands the JUNIOR only the task lines (plus the ticket title and summary), so anything emitted in those blocks is wasted tokens for the human reviewer and invisible to the agent that does the work. You MUST still reason about both during planning — they're how you guarantee the plan is sound — but bake the conclusions in elsewhere:
 >
@@ -188,8 +220,11 @@ All downstream tickets declare `depends_on` the foundation ticket so they consum
 - Tests are written by a separate backpressure phase. Do NOT include "write tests for X" tasks. Do NOT add `[test: ...]` annotations — the parser injects them.
 - Do NOT propose tasks that modify protected files: `.github/scripts/**`, `.github/prompts/**`, `.claude/settings.json`, `.aignore`, `biome.json`.
 - If the feature requires a new Jest config (e.g. `jsdom` environment, `moduleNameMapper`), inline the requirement into the foundation task that updates `jest.config.mjs` so backpressure mirrors it. Do NOT have backpressure invent it.
-- For Next.js + globals.css imports, ALWAYS include a foundation task that creates an ambient module declaration (`types/css.d.ts`) so `tsc --noEmit` doesn't trip on `import './globals.css'`. This is a known recurring gotcha.
-- For any image referenced via `next/image`, ALWAYS proxy through a `withBasePath` helper if `basePath` is configured.
+- **STACK FIDELITY (CRITICAL).** Only reference packages, modules, and APIs that exist in the *detected* stack — verify every import against the dependencies in `package.json`. NEVER emit a framework-specific module unless that framework is the detected stack: e.g. do not write `next/link`, `next/image`, `next/font`, `'use client'`, or `next.config.*` tasks in a Vite/CRA/plain project, and do not write Vite-only APIs in a Next project. The JUNIOR copies your imports verbatim and cannot substitute the right one, so a wrong-stack import wedges the loop until a human intervenes. When you need an equivalent capability (routing, image, asset base path), use the idiom of the detected stack (e.g. a plain `<a>` / the router the project actually uses; `withBasePath` over `import.meta.env.BASE_URL` for Vite).
+- **CONFIG CORRECTNESS.** Tasks that create or modify config (`tsconfig.json`, `vite.config.*`, `next.config.*`, build config) must use options that are valid and non-deprecated for the *installed* tool versions, and must not combine mutually exclusive options. Known traps to avoid: bare `"baseUrl"` in `tsconfig.json` errors as deprecated (`TS5101`) on recent TypeScript — express path aliases via `"paths"` without `baseUrl`, or add `"ignoreDeprecations": "6.0"`; `"composite": true` cannot be combined with `"noEmit": true` (`TS6310`); import the config helper from the package that actually exports it for the installed version.
+- **Framework-conditional gotchas (apply only when that framework is detected):**
+    - *Next.js + globals.css imports:* include a foundation task creating an ambient module declaration (`types/css.d.ts`) so `tsc --noEmit` doesn't trip on `import './globals.css'`. (Vite handles CSS imports via its own client types — do not add `types/css.d.ts` there.)
+    - *Next.js images via `next/image`:* proxy through a `withBasePath` helper if `basePath` is configured.
 
 # BACKSTOP REVIEW
 
@@ -203,16 +238,18 @@ Call the `Agent` tool with:
 - `prompt`: a self-contained brief including:
   1. **What you're reviewing** — explain this is a freshly written implementation blueprint at `.maestro.blueprint.md`. Paste the full file contents inline (read it back from disk so the subagent does not need to).
   2. **Detected tech stack** — a short bullet list of what repo reconnaissance found: framework, build tool/script, test framework, TypeScript config presence, any notable conventions.
-  3. **What to hunt for** — quote this verbatim: *"Audit two categories.*
+  3. **What to hunt for** — quote this verbatim: *"Audit three categories.*
 
-     *(A) Embedded commands. Find commands in task descriptions, backtick spans, or proposed `package.json` `scripts` entries that are (a) syntactically invalid for the named tool, (b) using flags or config property names that don't exist for that tool, or (c) inappropriate given the detected stack — especially `tsc` used as a production builder when the framework has its own build command, or test-runner flags that don't exist. Check any task that mutates `package.json` `scripts` or config files (`tsconfig.json`, `next.config.*`, `postcss.config.*`) with extra scrutiny.*
+     *(A) Embedded commands, imports, and config. Find (1) commands in task descriptions, backtick spans, or proposed `package.json` `scripts` entries that are syntactically invalid for the named tool, use flags or config property names that don't exist for that tool, or are inappropriate given the detected stack — especially `tsc` used as a production builder when the framework has its own build command, or test-runner flags that don't exist; (2) imports that reference a module or package NOT present in `package.json` or the detected framework — flag every framework-specific import that mismatches the detected stack (e.g. `next/link`, `next/image`, `'use client'` in a non-Next project; a Vite-only API in a Next project); (3) config options that are deprecated or mutually exclusive for the installed tool versions (e.g. bare `baseUrl` in `tsconfig.json` → TS5101, `composite` + `noEmit` → TS6310, importing a config helper from a package that doesn't export it for the installed version). Check any task that adds an import or mutates `package.json` `scripts` or config files (`tsconfig.json`, `vite.config.*`, `next.config.*`, `postcss.config.*`) with extra scrutiny.*
 
-     *(B) Design Intent coverage. For every named decision in the `### Design Intent` section — every color token, font, motif, named animation/spring/easing, layout rule (max-width, padding rhythm, dividers), motto/tagline string, and any other concrete construct — verify BOTH: (1) a foundation task creates it as an importable artifact (CSS variable, Tailwind config key, exported constant, motion preset, SVG component, content-module export, etc.), and (2) at least one downstream task references it by its exact name. Flag every decision that fails either check. Common failure modes: tokens declared but never consumed, named animations with no foundation module so spring constants are inlined per-component, layout rules (e.g. dividers between sections) named but not inserted by any task, motto strings duplicated as inline literals instead of imported from the content module, numeric ranges implemented one-sided."*
+     *(B) Design Intent coverage. For every named decision in the `### Design Intent` section — every color token, font, motif, named animation/spring/easing, layout rule (max-width, padding rhythm, dividers), motto/tagline string, and any other concrete construct — verify BOTH: (1) a foundation task creates it as an importable artifact (CSS variable, Tailwind config key, exported constant, motion preset, SVG component, content-module export, etc.), and (2) at least one downstream task references it by its exact name. Flag every decision that fails either check. Common failure modes: tokens declared but never consumed, named animations with no foundation module so spring constants are inlined per-component, layout rules (e.g. dividers between sections) named but not inserted by any task, motto strings duplicated as inline literals instead of imported from the content module, numeric ranges implemented one-sided.*
+
+     *(C) Acceptance fidelity. For every ticket, verify the `**Acceptance:**` line is (1) a single line, (2) observable — phrased so a reviewer could check it by inspecting an artifact, running a command, or reading a rendered page, with no adjectives left ungrounded — and (3) plausibly delivered by the ticket's task list. Flag tickets whose Acceptance is aspirational prose, restates the summary, or names outcomes the task list does not produce. Also verify each bullet in `### Success Criteria` is observable by the same standard."*
   4. **Return format** — quote this verbatim: *"If nothing is wrong, return exactly `NO_ISSUES` and nothing else. Otherwise, return a punch list, one entry per issue, each formatted as:*
 
      ```
-     - Category: Commands | Coverage
-       Section: <ticket number and task number, or 'Tech Stack' / 'File Structure' / 'Design Intent'>
+     - Category: Commands | Coverage | Acceptance
+       Section: <ticket number and task number, or 'Tech Stack' / 'File Structure' / 'Design Intent' / 'Success Criteria' / 'Ticket N Acceptance'>
        Issue: `<quoted decision, command, or property>`
        Why: <one sentence>
        Fix: <suggested replacement or task to add>

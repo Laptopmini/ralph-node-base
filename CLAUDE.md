@@ -62,7 +62,7 @@ Override any variable in `.env`. Any OpenAI-compatible model reachable via LM St
 
 ### Phases
 
-1. **Blueprint** — `maestro.sh` injects the feature request into `.github/prompts/blueprint.md` and runs it with the `PROJECT_MANAGER_MODEL` (Opus). The agent writes `.maestro.blueprint.md` (the full plan) and `.maestro.blueprint.levels` (one tree level per line, defining the order of implementation slices). Blueprint is a pure prompt — no skills or external tools are invoked.
+1. **Blueprint** — `maestro.sh` injects the feature request into `.github/prompts/blueprint.md` and runs it with the `PROJECT_MANAGER_MODEL` (Opus). The agent writes `.maestro.blueprint.md` (the full plan) and `.maestro.blueprint.levels` (one tree level per line, defining the order of implementation slices). Blueprint is a pure prompt with no skills; its only external tool is the optional `ask_user` MCP server (`.github/mcp/ask-user.json`), which the agent may invoke once to ask the human load-bearing clarifying questions before planning.
 2. **Ticketmaster** — For each level, `ticketmaster/generate-prd.sh` parses the blueprint's regex-strict task lines and deterministically produces a `PRD.md` for each ticket, then pushes the branch and opens a PR. **No AI is involved.** **Gate 1:** human reviews and merges.
 3. **Backpressure** — `backpressure.sh` runs the `SENIOR_DEVELOPER_MODEL` (Opus) against each merged ticket branch. The agent writes only failing tests (no app code) for every PRD task, then the branch is pushed and a PR opened. **Gate 2:** human reviews and merges.
 4. **Ralph implementation** — `ralph.sh <archive-folder>` runs the `JUNIOR_DEVELOPER_MODEL` per task: read the next unchecked task → agent implements → run the task's `[test: ...]` (or `npm test`) → on pass, check the task off, append a `.agent-ledger.jsonl` entry, and update `MEMORY.md`. Capped at 5 loops per task. If the loop stalls, the `STAFF_DEVELOPER_MODEL` (Opus) is invoked as a repair agent. When all tasks pass, the PRD is archived to `docs/<feature-name>/PRD.<sanitized-title>.md`, `MEMORY.md` is removed, and a final commit is made. **Gate 3:** human reviews and merges.
@@ -85,6 +85,8 @@ The `[test: command]` annotation specifies targeted validation for that task. If
 | `.github/scripts/backpressure.sh` | Failing-test generator for the active PRD |
 | `.github/scripts/ticketmaster/generate-prd.sh` | Deterministic bash script that parses blueprint task lines into `PRD.md` |
 | `.github/scripts/agents/prompt.sh` | CLI wrapper — routes to Claude Code (cloud) or OpenCode (local) based on model |
+| `.github/scripts/agents/ask-user-mcp.mjs` | Zero-dependency stdio MCP server exposing the `ask_user` tool; lets the non-interactive Blueprint agent ask the human clarifying questions via `/dev/tty` |
+| `.github/mcp/ask-user.json` | MCP config registering the `ask_user` server; passed to the Blueprint `claude` call via `--mcp-config` |
 | `.github/scripts/summarizer.sh` | PR title and body generator using the Intern model |
 | `.github/scripts/helpers/fork.sh` | One-shot repo duplication helper |
 | `.github/scripts/helpers/repo-slug.sh` | Parses `owner/repo` from the `origin` remote |
