@@ -123,6 +123,11 @@ while true; do
             ' "${BLUEPRINT_FILE}")
         fi
 
+        REPAIR_LEVELS_CONTEXT=""
+        if [[ -n "${BLUEPRINT_LEVELS_FILE:-}" && -s "${BLUEPRINT_LEVELS_FILE}" ]]; then
+            REPAIR_LEVELS_CONTEXT=$(cat "${BLUEPRINT_LEVELS_FILE}")
+        fi
+
         REPAIR_PROMPT="
 --- ACTIVE PRD TASK (the loop is stuck here) ---
 
@@ -142,6 +147,13 @@ $LEDGER_CONTEXT
 --- TICKET BLUEPRINT (design intent) ---
 
 $REPAIR_BLUEPRINT_CONTEXT
+
+--- TRICKLE-DOWN SWEEP INPUTS ---
+
+Blueprint file path (read the full file for the sweep, edit later-level ticket descriptions in place): ${BLUEPRINT_FILE:-(none — sweep unavailable)}
+Current ticket number: ${MAESTRO_TICKET_NUM:-(unknown)}
+Implementation levels (one level per line, in order; earlier lines are earlier levels):
+$REPAIR_LEVELS_CONTEXT
 "
 
         set +e
@@ -163,6 +175,18 @@ $REPAIR_BLUEPRINT_CONTEXT
 
         log INFO "Repair verdict: ${REPAIR_VERDICT:-(none)}"
         log INFO "Repair summary: ${REPAIR_SUMMARY:-(none)}"
+
+        REPAIR_AMENDMENT=$(echo "$REPAIR_OUTPUT" | awk '/<blueprint-amendment>/{flag=1; next} /<\/blueprint-amendment>/{flag=0} flag')
+        if [[ -n "$REPAIR_AMENDMENT" && ( "$REPAIR_VERDICT" == "backpressure-bug" || "$REPAIR_VERDICT" == "abort" ) ]]; then
+            log WARN "📐 Repair amended the blueprint to prevent trickle-down to later tickets:"
+            log WARN "$REPAIR_AMENDMENT"
+            if [[ -n "${MAESTRO_AMENDMENTS_FILE:-}" ]]; then
+                {
+                    printf 'From ticket %s (verdict: %s):\n' "${MAESTRO_TICKET_NUM:-?}" "$REPAIR_VERDICT"
+                    printf '%s\n\n' "$REPAIR_AMENDMENT"
+                } >> "$MAESTRO_AMENDMENTS_FILE"
+            fi
+        fi
 
         LAST_TASK_REPAIR="$CURRENT_TASK"
         TOTAL_LOOPS=$((TOTAL_LOOPS+LOOP_COUNTER))
