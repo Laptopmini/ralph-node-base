@@ -34,10 +34,10 @@ Each role in the pipeline is assigned a model matched to the cognitive demand an
 
 | Role | Default Model | Execution | Responsibility |
 |------|--------------|-----------|----------------|
-| Project Manager | `claude-opus-4-7` | Cloud (Anthropic) | Blueprint planning — turns a feature request into a structured, strongly-typed implementation contract |
+| Project Manager | `claude-opus-4-8` | Cloud (Anthropic) | Blueprint planning — turns a feature request into a structured, strongly-typed implementation contract |
 | Staff Developer | `claude-opus-4-6` | Cloud (Anthropic) | Repair & supervision — intervenes when the implementation loop gets stuck and reviews the final implmentation |
 | Senior Developer | `deepseek-v4-pro` | Cloud (OpenRouter) | Backpressure — writes failing tests that guard each PRD task |
-| Junior Developer | `minimax/MiniMax-M2.7` | Cloud (MiniMax) | Implementation — executes one PRD task at a time inside the Ralph loop |
+| Junior Developer | `minimax/MiniMax-M3` | Cloud (MiniMax) | Implementation — executes one PRD task at a time inside the Ralph loop |
 | Intern | `google/gemma-4-26b-a4b` | Local (LM Studio) | PR summaries — writes titles and descriptions for each pull request |
 
 Models are configured in `maestro.sh` and can be overridden in `.env`. Any model reachable via LM Studio (local) or in the cloud via Claude Code or OpenCode.
