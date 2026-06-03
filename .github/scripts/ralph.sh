@@ -105,8 +105,7 @@ while true; do
 
         log WARN "Max loops reached for task. Escalating to repair agent before aborting..."
 
-        REPAIR_PROMPT_BODY=$(cat .github/prompts/repair.md 2>/dev/null || echo "")
-        if [[ -z "$REPAIR_PROMPT_BODY" ]]; then
+        if [[ ! -s .github/prompts/repair.md ]]; then
             log ERROR "Repair prompt missing at .github/prompts/repair.md. Aborting."
             exit 1
         fi
@@ -125,8 +124,6 @@ while true; do
         fi
 
         REPAIR_PROMPT="
-$REPAIR_PROMPT_BODY
-
 --- ACTIVE PRD TASK (the loop is stuck here) ---
 
 $CURRENT_TASK
@@ -149,6 +146,7 @@ $REPAIR_BLUEPRINT_CONTEXT
 
         set +e
         REPAIR_OUTPUT=$(prompt "$REPAIR_PROMPT" \
+            --systemPromptFile .github/prompts/repair.md \
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash" \
             --disallowedTools "Bash(git:*),Bash(npm test*),Bash(npm run test*),Bash($TYPE_CHECK_CMD*),Bash(npx jest*),Bash(npx playwright*),Bash(npx tsc*)" \
             --model "${STAFF_DEVELOPER_MODEL:-claude-opus-4-6}")
@@ -203,9 +201,7 @@ $REPAIR_BLUEPRINT_CONTEXT
 
     log INFO "Assembling Context Window..."
 
-    RALPH_PROMPT=$(cat .github/prompts/ralph.md 2>/dev/null || echo "")
-
-    if [[ -z "$RALPH_PROMPT" ]]; then
+    if [[ ! -s .github/prompts/ralph.md ]]; then
         log ERROR "Ralph prompt missing at .github/prompts/ralph.md. Aborting."
         exit 1
     fi
@@ -217,8 +213,6 @@ $REPAIR_BLUEPRINT_CONTEXT
     ' PRD.md)
 
     AGENT_PROMPT="
-$RALPH_PROMPT
-
 --- ARCHITECTURAL HISTORY (Last 5 Entries) ---
 
 $LEDGER_CONTEXT
@@ -238,6 +232,7 @@ $PRD_CONTENT${ERROR_FEEDBACK:+$'\n'}$ERROR_FEEDBACK
 
     set +e
     OUTPUT=$(prompt "$AGENT_PROMPT" \
+        --systemPromptFile .github/prompts/ralph.md \
         --allowedTools "Read,Edit,Write,Glob,Grep,Bash" \
         --disallowedTools "Bash(git:*),Bash(npm test*),Bash(npm run test*),Bash($TYPE_CHECK_CMD*),Bash(npx jest*),Bash(npx playwright*),Bash(npx tsc*)" \
         --model "${JUNIOR_DEVELOPER_MODEL:-claude-sonnet-4-6}")

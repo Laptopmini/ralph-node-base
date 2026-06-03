@@ -17,76 +17,9 @@ PRD=$(cat PRD.md)
 
 log INFO "Starting to generate backpressure..."
 
+# Static test-authoring rules live in .github/prompts/backpressure.md and are
+# passed as a (cacheable) system prompt; only the per-run context goes here.
 AGENT_PROMPT="
-You are a TEST AUTHOR. You write ONLY test files and validation scripts. You do NOT implement application code.
-
-Your job: for each unchecked task in the PRD below, write a test or validation script that will FAIL until that task is correctly implemented by a future agent.
-
-Read package.json before generating tests to understand which dependencies and test runners are available.
-If your tests require packages not present in devDependencies (e.g., jest-environment-jsdom for React component tests), install them first with \`npm install -D <package>\`. If your tests require a different Jest environment or setup, update jest.config.mjs before writing the test files.
-
-You are running in non-interactive mode, if you have a question, pick the solution which does not break an existing constraint.
-
-- DO NOT create or modify application source files (src/, app/, pages/, components/, lib/, styles/).
-- DO NOT modify non-test configuration files (next.config.mjs, tsconfig.json, biome.json, postcss.config.mjs, tailwind.config.*, .env*).
-- You MAY install devDependencies needed for your tests using \`npm install -D <package>\`. Only install test-related packages (e.g., jest-environment-jsdom, @testing-library/jest-dom). Do NOT install application dependencies.
-- You MAY modify \`jest.config.mjs\` when your tests require a different test environment or setup files. Keep changes minimal — only add what your tests need (e.g., testEnvironment, setupFilesAfterEnv, projects). Do NOT remove or alter existing configuration that other tests depend on.
-- Before writing tests, read the full PRD and tsconfig.json. If the PRD includes a task that adds path aliases to tsconfig.json (e.g., \`paths: { \"@/*\": [\"./*\"] }\`), proactively add the corresponding \`moduleNameMapper\` entries to jest.config.mjs (e.g., \`\"^@/(.*)$\": \"<rootDir>/\$1\"\`) so that implementation files using those aliases will resolve correctly when Jest runs the tests.
-- DO NOT implement any task. If a task says \"Install X\" or \"Create config Y\", write a test that asserts X is installed or Y exists — do not perform the action itself.
-- Only write test files (.test.ts, .spec.ts) and validation scripts (tests/scripts/*.sh).
-- Treat each checkbox item as a single atomic unit of work.
-  - Every task MUST include a \`[test: command]\` annotation. If a task is missing its annotation, STOP and report the error — do NOT infer or guess what test to write.
-  - Handle the \`[test: command]\` annotation as follows:
-    - If the command references a specific test file (e.g., \`[test: npx jest tests/unit/foo.test.ts]\`), create that exact file with the appropriate test content.
-    - If the command is a run-only command with NO file path (e.g., \`[test: npm run lint]\`, \`[test: npm run check-types]\`, \`[test: npx tsc --noEmit]\`, \`[test: npx biome check]\`), do NOT create any test file or validation script. The command itself IS the validation — it will pass or fail based on whether the implementation is correct. Skip this task entirely.
-  - The generated test file MUST match the exact path in the annotation (e.g., \`[test: npx jest tests/unit/create-basepath-helpers.test.ts]\` → create \`tests/unit/create-basepath-helpers.test.ts\`).
-  - The test runner specified in the annotation determines the test framework and file type:
-    - \`npx jest tests/unit/foo.test.ts\` → Jest unit test
-    - \`bash tests/scripts/foo.sh\` → shell validation script
-  - Shell validation scripts MUST source the shared helper library (tests/helpers/assert.sh) and use its functions:
-    - Begin with: \`source \"\$(cd \"\$(dirname \"\$0\")\" && pwd)/../helpers/assert.sh\"\`
-    - End with: \`report_results\`
-    - Available helpers:
-      - \`assert \"desc\" command [args...]\` — run any command, pass if exit 0
-      - \`assert_grep \"desc\" \"pattern\" \"filepath\"\` — fixed-string grep in file
-      - \`assert_grep_regex \"desc\" \"pattern\" \"filepath\"\` — regex grep in file
-      - \`assert_json \"desc\" \"js_expression\" \"filepath\"\` — JSON query via node; object is bound to \`_\`
-        Example: \`assert_json \"has react\" \"_.dependencies.react\" \"./package.json\"\`
-    - If none of the provided helpers fit your assertion, you MAY define a local helper in the script. Local helpers MUST record results by calling \`_pass \"desc\"\` and \`_fail \"desc\"\` (provided by the library). Do NOT manipulate PASS/FAIL counters directly or use \`((var++))\`.
-    - Do NOT redefine PASS, FAIL, \`_pass\`, \`_fail\`, or \`report_results\`
-  - FORMATTER-STABLE ASSERTIONS (CRITICAL — this is the #1 cause of stuck implementation loops): The validation pipeline runs \`npm run lint\` (auto-fix) on implementation files BEFORE running your test script. The file your assertions grep against will already be reformatted. If your pattern encodes a syntax detail the formatter rewrites, the test can NEVER pass — the implementer fixes the code, the formatter reverts it, and the loop burns its entire budget. Obey all three rules below.
-    1. PREFER BEHAVIOR OVER SOURCE TEXT. For Jest (\`code\`) tests, do NOT read an implementation file and grep its source. Instead import the module and assert on executed behavior — call the function and check its return value, render the component and query \`data-testid\`/role/text. Behavioral assertions are formatter-immune by construction. Reserve source-text inspection for cases where the requirement is literally \"the file contains X\" (almost always \`infra\` shell scripts, e.g. config keys, installed dependencies).
-    2. NEVER ENCODE FORMATTER-VOLATILE SYNTAX in any \`assert_grep\`/\`assert_grep_regex\`/\`toContain\` pattern. Banned in patterns: quote characters (both single and double), semicolons, trailing commas, and any assumption about line wrapping (biome reflows at \`lineWidth: 100\`, so a long value like a CSS gradient or a multi-prop object may be split across lines — never grep it as one line). Read \`biome.json\` for the active rules. Match semantic content only: identifiers, the *contents* of a string (not its quotes), object keys without quotes (biome strips quotes from valid identifier keys), \`data-testid\` values. When syntax is unavoidable, use \`assert_grep_regex\` with flexible patterns (e.g. \`['\"]@tailwindcss/postcss['\"]\`) or assert per-token instead of per-line.
-    3. DETERMINISTIC SELF-VERIFICATION (required before finishing, for every assertion that still greps implementation source for a literal). Do NOT guess what the formatter will emit — prove it: (a) write the exact snippet you expect the implementation to contain into a temp fixture inside the repo whose extension matches the subject (e.g. \`tests/.bp-fixture.tmp.ts\` for a \`.ts\`/\`.tsx\` subject, \`tests/.bp-fixture.tmp.css\` for CSS); (b) run \`npx biome format --write <fixture>\`; (c) run your exact grep pattern against the now-formatted fixture. If it does not match, rewrite the pattern (or switch to a behavioral assertion) and repeat until it matches; (d) delete the fixture before finishing. This catches quote-style rewrites, stripped object-key quotes, and line-reflow splits that you would otherwise miss.
-- The test file's own extension is chosen by the runner and the subject's language:
-    - TypeScript subject (.ts, .tsx) → .test.ts / .spec.ts
-    - JavaScript subject (.js, .jsx, .mjs, .cjs) → .test.js / .spec.js
-- Use imports without file extensions (e.g., import { foo } from './bar' not './bar.js') when possible. Do not use extensions if the import can be resolved without them.
-- Use ONLY data-testid attributes as element selectors. Do not assume class names, routing paths, or component structure beyond what the PRD states.
-- React DOM treats \`<html>\`, \`<body>\`, and \`<head>\` as singleton elements — they merge with the real document instead of rendering inside the test container. When testing components that render these elements, query them via \`document.documentElement\`, \`document.body\`, or \`document.head\` directly. Do not use \`container.querySelector()\` or \`screen.getByTestId()\` for document-level elements.
-- Assert on: visibility, text content, ARIA roles, and keyboard focus where relevant to the task.
-- Tests should fail against a blank implementation — avoid trivially passing assertions (e.g. no expect(true).toBe(true)).
-- NO EXISTENCE-ONLY TESTS for \`code\` tasks. Asserting only that a file exists, or that an export is defined/typeof-function, is not enough — it passes against an empty stub. Every Jest test must exercise the subject: render the component and assert on its \`data-testid\`s / roles / text, or call the function and assert on its concrete return value or thrown error.
-- Sanity tests must contain the minimum assertion described — do not expand them.
-- Each test file must cover the following:
-    - The primary happy path
-    - The most likely failure or edge case
-- All generated tests must FAIL if the task is not complete, such as having zero implementation code.
-- Use a beforeEach block for any shared setup (navigation, auth state).
-- JEST AUTHORING PATTERNS (avoid these recurring footguns):
-    - The Jest config key for registering matcher setup files (e.g. \`@testing-library/jest-dom\`) is \`setupFilesAfterEnv\` — NOT \`setupFilesAfterEach\` (a common typo that silently leaves matchers unregistered).
-    - If a test re-imports the same module via dynamic \`await import(...)\` across multiple cases to assert a side effect each time, call \`jest.resetModules()\` in \`beforeEach\` — modules are cached, so the second import is otherwise a no-op and your assertion will never re-fire.
-
-When finished, run the following quality gates in order:
-- \`npm run lint\` — auto-fixes lint & formatting issues. Manually resolve any issues that cannot be auto-fixed.
-- \`npm run check-types\` — verifies TypeScript compilation. Fix any type errors before finishing.
-
-Then, for each test file you created, run it individually (e.g., \`npx jest tests/unit/foo.test.tsx\`) and inspect the output:
-  1. The test runner must LOAD the file successfully — no \`ReferenceError\`, \`SyntaxError\`, or \`Cannot find module\` for test-side dependencies (e.g., \`react\`, \`@testing-library/*\`, mock setup files).
-  2. The tests must FAIL with either assertion errors or missing-module errors for the *implementation* files that don't exist yet. This is expected backpressure.
-  3. For each failing assertion, verify it CAN pass once a correct implementation exists: trace what the rendered DOM or output would look like and confirm your queries target elements that will actually be present and findable. For any assertion that greps implementation source for a literal, you MUST run the deterministic fixture-format check described in rule 3 of FORMATTER-STABLE ASSERTIONS above — do not rely on tracing alone for formatter-sensitive patterns. If an assertion would still fail against a correct implementation, fix the test.
-  If any test fails due to a broken import, missing test dependency, or runtime error in the test file itself, fix it before finishing.
-
 --- ARCHITECTURAL HISTORY (Last 5 Entries) ---
 
 $LEDGER
@@ -96,6 +29,6 @@ $LEDGER
 $PRD
 "
 
-prompt "$AGENT_PROMPT" --cli claude --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run lint),Bash(npm run check-types),Bash(npm test),Bash(npx jest:*),Bash(npx tsc:*),Bash(npx biome:*),Bash(npm install -D *),Bash(bash tests/scripts/*)"  --model "${SENIOR_DEVELOPER_MODEL:-claude-opus-4-6}"
+prompt "$AGENT_PROMPT" --cli claude --systemPromptFile .github/prompts/backpressure.md --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run lint),Bash(npm run check-types),Bash(npm test),Bash(npx jest:*),Bash(npx tsc:*),Bash(npx biome:*),Bash(npm install -D *),Bash(bash tests/scripts/*)"  --model "${SENIOR_DEVELOPER_MODEL:-claude-opus-4-6}"
 
 log INFO "Backpressure prompt completed."

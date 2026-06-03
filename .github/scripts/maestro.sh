@@ -5,10 +5,6 @@
 # Usage: ./maestro.sh <Your feature request paragraph>
 # ==============================================================================
 
-# FIXME: Leverage custom --systemPrompt so that directives can be stronger in Ralph and Repair agents (look at gains from prompt caching through iterations)
-
-# FIXME: Include current log output in the final review stage
-
 # FIXME: Add before&after token usage and cost using tokscale
 
 # FIXME: Add support for parrallel backpressure and implementation

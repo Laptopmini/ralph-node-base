@@ -36,6 +36,7 @@ prompt() {
 
     local ALLOWED=""
     local DISALLOWED=""
+    local SYSTEM_PROMPT_FILE=""
     local EXTRA_ARGS=()
     local LOCAL_ENV=()
 
@@ -70,11 +71,22 @@ prompt() {
                     ((i+=2)) || true
                     continue
                 fi ;;
+            --systemPromptFile)
+                if (( i + 1 < ${#ARGS[@]})) && [[ "${ARGS[$((i+1))]}" != --* ]]; then
+                    SYSTEM_PROMPT_FILE="${ARGS[$((i+1))]}"
+                    ((i+=2)) || true
+                    continue
+                fi ;;
         esac
         
         EXTRA_ARGS+=("$arg")
         ((i++)) || true
     done
+
+    if [[ -n "$SYSTEM_PROMPT_FILE" && ! -s "$SYSTEM_PROMPT_FILE" ]]; then
+        log ERROR "System prompt file '$SYSTEM_PROMPT_FILE' does not exist or is empty." >&2
+        return 1
+    fi
 
     if [[ "$MODEL" != claude-* ]]; then
         if [[ "$MODEL" != minimax/* && "$MODEL" != openrouter* ]]; then
@@ -228,7 +240,13 @@ prompt() {
         if [[ -n "$DISALLOWED" ]]; then
             EXTRA_ARGS+=("--disallowedTools" "$DISALLOWED")
         fi
-        
+
+        # Carry the static instructions as a (cacheable) system prompt instead of
+        # inlining them in the user turn. Appends to Claude Code's default scaffolding.
+        if [[ -n "$SYSTEM_PROMPT_FILE" ]]; then
+            EXTRA_ARGS+=("--append-system-prompt" "$(cat "$SYSTEM_PROMPT_FILE")")
+        fi
+
         # Move the .CLAUDE.md file to a temp file to avoid it being read by the agent
         mv -f "CLAUDE.md" "$CLAUDE_CONTEXT_TEMP_FILE"
 
@@ -268,8 +286,27 @@ prompt() {
             return 1
         fi
 
+        # OpenCode has no --system-prompt flag; a custom system prompt is supplied
+        # via an agent definition whose markdown body IS the system prompt.
+        local OPENCODE_AGENT_FILE=""
+        if [[ -n "$SYSTEM_PROMPT_FILE" ]]; then
+            OPENCODE_AGENT_FILE=".opencode/agent/maestro-runtime.md"
+            mkdir -p "$(dirname "$OPENCODE_AGENT_FILE")"
+            {
+                printf -- '---\ndescription: Maestro runtime system prompt\nmode: primary\n---\n'
+                cat "$SYSTEM_PROMPT_FILE"
+            } > "$OPENCODE_AGENT_FILE"
+            EXTRA_ARGS+=("--agent" "maestro-runtime")
+        fi
+
+        set +e
         env "${LOCAL_ENV[@]}" opencode run "$AGENT_PROMPT" "${EXTRA_ARGS[@]:-}"
         ENGINE_EXIT=$?
+        set -e
+
+        if [[ -n "$OPENCODE_AGENT_FILE" ]]; then
+            rm -f "$OPENCODE_AGENT_FILE"
+        fi
     else
         log ERROR "$CLI CLI is not supported." >&2
         return 1
