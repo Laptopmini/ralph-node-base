@@ -5,17 +5,13 @@
 # Usage: ./maestro.sh <Your feature request paragraph>
 # ==============================================================================
 
-# FIXME: Leverage custom --systemPrompt so that directives can be stronger in Ralph and Repair agents (look at gains from prompt caching through iterations)
-
-# FIXME: Include current log output in the final review stage
-
 # FIXME: Add before&after token usage and cost using tokscale
 
 # FIXME: Add support for parrallel backpressure and implementation
 
 # FIXME: Improve Gemma PR titles, they are none descriptive at the moment
 
-# FIXME: Repair agent: If the backpressure is fixed, concider updating the PRD task description if it introduced the issue?
+# FIXME: Improve backpressure by tailoring it to write feature validation for Spec Driven Development
 
 set -euo pipefail
 
@@ -38,6 +34,7 @@ BLUEPRINT_LEVELS_FILE=".maestro.blueprint.levels"
 PR_TSV_FILE=".maestro.pull-requests.tsv"
 PR_SUMMARY_FILE=".maestro.summary.md"
 FOLDER_FILE=".maestro.folder"
+AMENDMENTS_FILE=".maestro.amendments.log"
 
 # Models
 
@@ -52,6 +49,8 @@ export INTERN_DEVELOPER_MODEL="google/gemma-4-26b-a4b" # Writing Pull Requests
 export REPO_SLUG=$(bash .github/scripts/helpers/repo-slug.sh)
 export PR_SUMMARY_FILE
 export BLUEPRINT_FILE
+export BLUEPRINT_LEVELS_FILE
+export MAESTRO_AMENDMENTS_FILE="$AMENDMENTS_FILE"
 
 # Environment variables
 
@@ -166,7 +165,7 @@ review_pull_requests() {
 
 cleanup() {
     local exit_code=$?
-    rm -f "$LOCK_FILE" "$LOG_FILE" "$LOG_FILE_BACKUP" "$PR_TSV_FILE" "$PR_SUMMARY_FILE" ".maestro.screenshot.png"
+    rm -f "$LOCK_FILE" "$LOG_FILE" "$LOG_FILE_BACKUP" "$PR_TSV_FILE" "$PR_SUMMARY_FILE" "$AMENDMENTS_FILE" ".maestro.screenshot.png"
     if [[ $exit_code -eq 0 ]]; then
         rm -f "$BLUEPRINT_FILE" "$BLUEPRINT_LEVELS_FILE" "$FOLDER_FILE"
     elif [[ $exit_code -ne 130 ]]; then
@@ -435,6 +434,14 @@ while IFS= read -r LEVEL <&3; do
     if [[ "$ACTUAL_IMPL_COUNT" != "$EXPECTED_IMPL_COUNT" ]]; then
         log ERROR "Generated $ACTUAL_IMPL_COUNT implementation branch(es) for level \"$LEVEL\" but $EXPECTED_IMPL_COUNT were expected. Aborting."
         exit 1
+    fi
+
+    if [[ -s "$AMENDMENTS_FILE" ]]; then
+        log WARN "📐 The repair agent amended the blueprint this level to prevent trickle-down."
+        log WARN "    Later levels' PRDs will be generated from the corrected blueprint — review them accordingly:"
+        log WARN ""
+        cat "$AMENDMENTS_FILE"
+        : > "$AMENDMENTS_FILE"
     fi
 
     review_pull_requests "$IMPLEMENTATION_BRANCHES"

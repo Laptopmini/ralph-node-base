@@ -105,8 +105,7 @@ while true; do
 
         log WARN "Max loops reached for task. Escalating to repair agent before aborting..."
 
-        REPAIR_PROMPT_BODY=$(cat .github/prompts/repair.md 2>/dev/null || echo "")
-        if [[ -z "$REPAIR_PROMPT_BODY" ]]; then
+        if [[ ! -s .github/prompts/repair.md ]]; then
             log ERROR "Repair prompt missing at .github/prompts/repair.md. Aborting."
             exit 1
         fi
@@ -124,9 +123,12 @@ while true; do
             ' "${BLUEPRINT_FILE}")
         fi
 
-        REPAIR_PROMPT="
-$REPAIR_PROMPT_BODY
+        REPAIR_LEVELS_CONTEXT=""
+        if [[ -n "${BLUEPRINT_LEVELS_FILE:-}" && -s "${BLUEPRINT_LEVELS_FILE}" ]]; then
+            REPAIR_LEVELS_CONTEXT=$(cat "${BLUEPRINT_LEVELS_FILE}")
+        fi
 
+        REPAIR_PROMPT="
 --- ACTIVE PRD TASK (the loop is stuck here) ---
 
 $CURRENT_TASK
@@ -145,10 +147,18 @@ $LEDGER_CONTEXT
 --- TICKET BLUEPRINT (design intent) ---
 
 $REPAIR_BLUEPRINT_CONTEXT
+
+--- TRICKLE-DOWN SWEEP INPUTS ---
+
+Blueprint file path (read the full file for the sweep, edit later-level ticket descriptions in place): ${BLUEPRINT_FILE:-(none — sweep unavailable)}
+Current ticket number: ${MAESTRO_TICKET_NUM:-(unknown)}
+Implementation levels (one level per line, in order; earlier lines are earlier levels):
+$REPAIR_LEVELS_CONTEXT
 "
 
         set +e
         REPAIR_OUTPUT=$(prompt "$REPAIR_PROMPT" \
+            --systemPromptFile .github/prompts/repair.md \
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash" \
             --disallowedTools "Bash(git:*),Bash(npm test*),Bash(npm run test*),Bash($TYPE_CHECK_CMD*),Bash(npx jest*),Bash(npx playwright*),Bash(npx tsc*)" \
             --model "${STAFF_DEVELOPER_MODEL:-claude-opus-4-6}")
@@ -165,6 +175,18 @@ $REPAIR_BLUEPRINT_CONTEXT
 
         log INFO "Repair verdict: ${REPAIR_VERDICT:-(none)}"
         log INFO "Repair summary: ${REPAIR_SUMMARY:-(none)}"
+
+        REPAIR_AMENDMENT=$(echo "$REPAIR_OUTPUT" | awk '/<blueprint-amendment>/{flag=1; next} /<\/blueprint-amendment>/{flag=0} flag')
+        if [[ -n "$REPAIR_AMENDMENT" && ( "$REPAIR_VERDICT" == "backpressure-bug" || "$REPAIR_VERDICT" == "abort" ) ]]; then
+            log WARN "📐 Repair amended the blueprint to prevent trickle-down to later tickets:"
+            log WARN "$REPAIR_AMENDMENT"
+            if [[ -n "${MAESTRO_AMENDMENTS_FILE:-}" ]]; then
+                {
+                    printf 'From ticket %s (verdict: %s):\n' "${MAESTRO_TICKET_NUM:-?}" "$REPAIR_VERDICT"
+                    printf '%s\n\n' "$REPAIR_AMENDMENT"
+                } >> "$MAESTRO_AMENDMENTS_FILE"
+            fi
+        fi
 
         LAST_TASK_REPAIR="$CURRENT_TASK"
         TOTAL_LOOPS=$((TOTAL_LOOPS+LOOP_COUNTER))
@@ -203,9 +225,7 @@ $REPAIR_BLUEPRINT_CONTEXT
 
     log INFO "Assembling Context Window..."
 
-    RALPH_PROMPT=$(cat .github/prompts/ralph.md 2>/dev/null || echo "")
-
-    if [[ -z "$RALPH_PROMPT" ]]; then
+    if [[ ! -s .github/prompts/ralph.md ]]; then
         log ERROR "Ralph prompt missing at .github/prompts/ralph.md. Aborting."
         exit 1
     fi
@@ -217,8 +237,6 @@ $REPAIR_BLUEPRINT_CONTEXT
     ' PRD.md)
 
     AGENT_PROMPT="
-$RALPH_PROMPT
-
 --- ARCHITECTURAL HISTORY (Last 5 Entries) ---
 
 $LEDGER_CONTEXT
@@ -238,6 +256,7 @@ $PRD_CONTENT${ERROR_FEEDBACK:+$'\n'}$ERROR_FEEDBACK
 
     set +e
     OUTPUT=$(prompt "$AGENT_PROMPT" \
+        --systemPromptFile .github/prompts/ralph.md \
         --allowedTools "Read,Edit,Write,Glob,Grep,Bash" \
         --disallowedTools "Bash(git:*),Bash(npm test*),Bash(npm run test*),Bash($TYPE_CHECK_CMD*),Bash(npx jest*),Bash(npx playwright*),Bash(npx tsc*)" \
         --model "${JUNIOR_DEVELOPER_MODEL:-claude-sonnet-4-6}")

@@ -34,5 +34,8 @@ vite.config.ts.timestamp-*
 # Maestro files
 .maestro.*
 
+# Generated OpenCode agent (system-prompt carrier, regenerated each run)
+.opencode/agent/maestro-runtime.md
+
 # E2E & Unit tests
 test-results/
