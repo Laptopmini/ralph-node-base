@@ -17,8 +17,6 @@
 
 # FIXME: Repair agent: If the backpressure is fixed, concider updating the PRD task description if it introduced the issue?
 
-# FIXME: Backpressure agent needs to enforce tests using Biome rules. Claude still fixes issues with quotes.
-
 set -euo pipefail
 
 source .github/scripts/helpers/ask.sh
