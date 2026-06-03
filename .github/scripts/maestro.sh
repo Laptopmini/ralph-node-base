@@ -234,9 +234,15 @@ while $MISSING_BLUEPRINT; do
         fi
 
         STYLE_CONTEXT=""
-        FEATURE_URL=$(echo "$*" | grep -oiE 'https?://[^ ]+' | head -1 || true)
-        if [[ -n "$FEATURE_URL" ]]; then
-            log INFO "Analyzing reference URL: $FEATURE_URL"
+        FEATURE_REQUEST="$*"
+        # Visual reference is opt-in: only a URL wrapped in a [visual: <url>] marker is used for style analysis.
+        VISUAL_MARKER=$(echo "$*" | grep -oiE '\[visual:[[:space:]]*https?://[^]]+\]' | head -1 || true)
+        if [[ -n "$VISUAL_MARKER" ]]; then
+            FEATURE_URL=$(echo "$VISUAL_MARKER" | grep -oiE 'https?://[^]]+' | sed 's/[[:space:]]*$//')
+            FEATURE_REQUEST="${FEATURE_REQUEST/$VISUAL_MARKER/}"
+        fi
+        if [[ -n "${FEATURE_URL:-}" ]]; then
+            log INFO "Analyzing visual reference URL: $FEATURE_URL"
             set +e
             STYLE_JSON=$(node .github/scripts/helpers/analyze_style.js "$FEATURE_URL" 2>&1)
             STYLE_EXIT=$?
@@ -266,7 +272,7 @@ Use these extracted values as the basis for Design Intent tokens (colors, fonts,
 $STYLE_CONTEXT
 --- HUMAN FEATURE REQUEST ---
 
-$*
+$FEATURE_REQUEST
 "
         MCP_TOOL_TIMEOUT="3600000" prompt "$BLUEPRINT_PROMPT" \
             --allowedTools "Read,Glob,Grep,Write($BLUEPRINT_FILE),Edit($BLUEPRINT_FILE),Write($BLUEPRINT_LEVELS_FILE),Edit($BLUEPRINT_LEVELS_FILE),Agent,mcp__maestro__ask_user" \
