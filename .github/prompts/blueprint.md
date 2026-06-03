@@ -39,8 +39,13 @@ Required sections, in order:
 ```
 ## Implementation Plan: <Title>
 
-### Assumptions
-- bullet list of assumptions you're making about the request, repo state, deployment target, etc.
+### Mission Statement
+
+One or two short paragraphs. State what we're building, who or what it serves, and the bar of intent. If an operating assumption is genuinely load-bearing (deployment target, integration constraint, repo state that the JUNIOR cannot infer), fold it inline as a sentence — do not emit a defensive bullet dump. If nothing is load-bearing, leave it out.
+
+### Success Criteria
+- bulleted, observable, falsifiable signals of feature-level done.
+- each criterion must be checkable by inspection — an artifact exists, a command exits 0, a page renders X, an API returns shape Y. No adjectives without referents, no aspirational prose.
 
 ### Design Intent
 
@@ -73,6 +78,7 @@ For each dimension that applies, give a **name** and a **concrete value**. If yo
 
 #### Ticket N: <Short Title>
 **depends_on:** [Ticket M]   <-- omit for tickets with no dependency
+**Acceptance:** <one observable line stating what "this ticket succeeded" looks like, independent of which tasks it contains>
 
 > One-paragraph summary of the ticket's intent.
 
@@ -80,6 +86,19 @@ For each dimension that applies, give a **name** and a **concrete value**. If yo
 1. [<tag>, <slug>, <ext>] description...
 2. [<tag>, <slug>, <ext>] description...
 ```
+
+## Spec sections vs. build sections
+
+The four intent sections together form the spec; the task list is the build:
+
+- **Mission Statement** — *why* we're building it.
+- **Success Criteria** — *how we'll know it worked* (feature-level).
+- **Design Intent** — *what character it has* (named, concrete tokens).
+- **Acceptance** (per ticket) — *what this slice delivers*.
+
+`generate-prd.sh` only forwards ticket titles plus task lines (regex `^[0-9]+\. \[`) to the JUNIOR. Mission Statement, Success Criteria, and per-ticket `**Acceptance:**` lines are therefore invisible to the JUNIOR by design — they exist for the human PR-gate reviewer and for downstream review agents. Keep them terse and observable, not exhaustive. They are not a place to re-explain task content.
+
+Per-ticket `**Acceptance:**` is one line. If you cannot write it observably, the ticket is under-specified — split it, merge it, or sharpen its scope before settling for prose.
 
 > **Do not emit `Constraints` or `Files owned` blocks.** A downstream PRD generator hands the JUNIOR only the task lines (plus the ticket title and summary), so anything emitted in those blocks is wasted tokens for the human reviewer and invisible to the agent that does the work. You MUST still reason about both during planning — they're how you guarantee the plan is sound — but bake the conclusions in elsewhere:
 >
@@ -203,16 +222,18 @@ Call the `Agent` tool with:
 - `prompt`: a self-contained brief including:
   1. **What you're reviewing** — explain this is a freshly written implementation blueprint at `.maestro.blueprint.md`. Paste the full file contents inline (read it back from disk so the subagent does not need to).
   2. **Detected tech stack** — a short bullet list of what repo reconnaissance found: framework, build tool/script, test framework, TypeScript config presence, any notable conventions.
-  3. **What to hunt for** — quote this verbatim: *"Audit two categories.*
+  3. **What to hunt for** — quote this verbatim: *"Audit three categories.*
 
      *(A) Embedded commands. Find commands in task descriptions, backtick spans, or proposed `package.json` `scripts` entries that are (a) syntactically invalid for the named tool, (b) using flags or config property names that don't exist for that tool, or (c) inappropriate given the detected stack — especially `tsc` used as a production builder when the framework has its own build command, or test-runner flags that don't exist. Check any task that mutates `package.json` `scripts` or config files (`tsconfig.json`, `next.config.*`, `postcss.config.*`) with extra scrutiny.*
 
-     *(B) Design Intent coverage. For every named decision in the `### Design Intent` section — every color token, font, motif, named animation/spring/easing, layout rule (max-width, padding rhythm, dividers), motto/tagline string, and any other concrete construct — verify BOTH: (1) a foundation task creates it as an importable artifact (CSS variable, Tailwind config key, exported constant, motion preset, SVG component, content-module export, etc.), and (2) at least one downstream task references it by its exact name. Flag every decision that fails either check. Common failure modes: tokens declared but never consumed, named animations with no foundation module so spring constants are inlined per-component, layout rules (e.g. dividers between sections) named but not inserted by any task, motto strings duplicated as inline literals instead of imported from the content module, numeric ranges implemented one-sided."*
+     *(B) Design Intent coverage. For every named decision in the `### Design Intent` section — every color token, font, motif, named animation/spring/easing, layout rule (max-width, padding rhythm, dividers), motto/tagline string, and any other concrete construct — verify BOTH: (1) a foundation task creates it as an importable artifact (CSS variable, Tailwind config key, exported constant, motion preset, SVG component, content-module export, etc.), and (2) at least one downstream task references it by its exact name. Flag every decision that fails either check. Common failure modes: tokens declared but never consumed, named animations with no foundation module so spring constants are inlined per-component, layout rules (e.g. dividers between sections) named but not inserted by any task, motto strings duplicated as inline literals instead of imported from the content module, numeric ranges implemented one-sided.*
+
+     *(C) Acceptance fidelity. For every ticket, verify the `**Acceptance:**` line is (1) a single line, (2) observable — phrased so a reviewer could check it by inspecting an artifact, running a command, or reading a rendered page, with no adjectives left ungrounded — and (3) plausibly delivered by the ticket's task list. Flag tickets whose Acceptance is aspirational prose, restates the summary, or names outcomes the task list does not produce. Also verify each bullet in `### Success Criteria` is observable by the same standard."*
   4. **Return format** — quote this verbatim: *"If nothing is wrong, return exactly `NO_ISSUES` and nothing else. Otherwise, return a punch list, one entry per issue, each formatted as:*
 
      ```
-     - Category: Commands | Coverage
-       Section: <ticket number and task number, or 'Tech Stack' / 'File Structure' / 'Design Intent'>
+     - Category: Commands | Coverage | Acceptance
+       Section: <ticket number and task number, or 'Tech Stack' / 'File Structure' / 'Design Intent' / 'Success Criteria' / 'Ticket N Acceptance'>
        Issue: `<quoted decision, command, or property>`
        Why: <one sentence>
        Fix: <suggested replacement or task to add>

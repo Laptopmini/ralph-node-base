@@ -104,7 +104,10 @@ prompt() {
                     MAX_CONTEXT_WINDOW=120000
                     ;;
                 minimax/MiniMax-M2.7)
-                    MAX_CONTEXT_WINDOW=196000
+                    MAX_CONTEXT_WINDOW=204800
+                    ;;
+                minimax/MiniMax-M3)
+                    MAX_CONTEXT_WINDOW=1000000
                     ;;
                 openrouter/deepseek/deepseek-v4-pro)
                     MAX_CONTEXT_WINDOW=1000000
