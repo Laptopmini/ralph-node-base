@@ -271,8 +271,9 @@ $STYLE_CONTEXT
 
 $*
 "
-        prompt "$BLUEPRINT_PROMPT" \
-            --allowedTools "Read,Glob,Grep,Write($BLUEPRINT_FILE),Edit($BLUEPRINT_FILE),Write($BLUEPRINT_LEVELS_FILE),Edit($BLUEPRINT_LEVELS_FILE),Agent" \
+        MCP_TOOL_TIMEOUT="3600000" prompt "$BLUEPRINT_PROMPT" \
+            --allowedTools "Read,Glob,Grep,Write($BLUEPRINT_FILE),Edit($BLUEPRINT_FILE),Write($BLUEPRINT_LEVELS_FILE),Edit($BLUEPRINT_LEVELS_FILE),Agent,mcp__maestro__ask_user" \
+            --mcp-config .github/mcp/ask-user.json --strict-mcp-config \
             --model "$PROJECT_MANAGER_MODEL"
 
         if [[ ! -s "$BLUEPRINT_FILE" || ! -s "$BLUEPRINT_LEVELS_FILE" ]]; then

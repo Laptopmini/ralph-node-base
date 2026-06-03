@@ -16,3 +16,4 @@ PRD.md
 # Scripts and prompts the agent shouldn't read/execute itself
 .github/scripts/**
 .github/prompts/**
+.github/mcp/**
